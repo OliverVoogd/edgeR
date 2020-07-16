@@ -205,18 +205,18 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
                                            counts = hairpinPositionSummary$V1)
       hairpinPositionSummary <- rbind(oneRowFrame, hairpinPositionSummary)
 
-      print(plot(NULL, 
-           xlim=c(0, max(max(barcodepos$read_position), max(hairpinpos$read_position))), 
-           ylim=c(0, max(max(barcodepos$counts, max(hairpinpos$counts)))),
+      plot(NULL, 
+           xlim=c(0, max(max(barcodePositionSummary$read_position), max(hairpinPositionSummary$read_position))), 
+           ylim=c(0, max(max(barcodePositionSummary$counts, max(hairpinPositionSummary$counts)))),
            ylab = "Sequence Counts",
            xlab = "Read Position",
-           main = "Barcode & Hairpin Position in Reads"))
-      print(polygon(barcodepos$read_position, barcodepos$counts, col="firebrick", border="firebrick"))
-      print(polygon(hairpinpos$read_position, hairpinpos$counts, col="navyblue", border="navyblue"))
-      print(legend(x=max(barcodepos$read_position) - 20, y=max(barcodepos$counts), 
+           main = "Barcode & Hairpin Position in Reads")
+      polygon(barcodePositionSummary$read_position, barcodePositionSummary$counts, col="firebrick", border="firebrick")
+      polygon(hairpinPositionSummary$read_position, hairpinPositionSummary$counts, col="navyblue", border="navyblue")
+      legend(x=max(barcodePositionSummary$read_position) - 20, y=max(barcodePositionSummary$counts), 
              legend=c("Barcodes", "Hairpins"), 
              col=c("firebrick", "navyblue"),
-             fill=c("firebrick", "navyblue")))
+             fill=c("firebrick", "navyblue"))
     
     }
   }, error = function(err) {print(paste("ERROR MESSAGE:  ",err))}
