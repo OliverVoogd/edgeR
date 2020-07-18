@@ -221,7 +221,9 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
     }
   }, error = function(err) {print(paste("ERROR MESSAGE:  ",err))}
   )
-
+  
+  #invisible(readline("Enter to Continue"))
+  
   if (exists("hairpinReadsSummary")) {
   
     if (nrow(hairpinReadsSummary) != length(hairpinIDs))

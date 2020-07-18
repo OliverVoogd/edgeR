@@ -1,7 +1,7 @@
 \name{processAmplicons}
 \alias{processAmplicons}
 
-\title{Process raw data from pooled genetic sequencing screens}
+\title{Process raw fastq data from pooled genetic sequencing screens}
 
 \description{
 Given a list of sample-specific index (barcode) sequences and hairpin/sgRNA-specific sequences from an amplicon sequencing screen, generate a DGEList of counts from the raw fastq file/(s) containing the sequence reads. The position of the index sequences and hairpin/sgRNA sequences is considered variable, with the hairpin/sgRNA sequences assumed to be located after the index sequences in the read.
@@ -27,17 +27,17 @@ processAmplicons(readfile, readfile2=NULL, barcodefile, hairpinfile,
 \code{barcodefile}) which should be matched}
 \item{verbose}{if \code{TRUE}, output program progress}
 \item{barcodeInHeader}{logical, indicates if barcode sequences should be matched in the header (sequence identifier) of each read (i.e. the first of every group of four lines in the fastq files)}
-\item{plotPositions}{logical, indicates if a ggplot2 density plot should be created displaying the positions of each barcode and hairpin sequence in the reads}
+\item{plotPositions}{logical, indicates if a density plot displaying the position of each barcode and hairpin/sgRNA sequence in the reads should be created}
 }
 
 \value{Returns a \code{\link[edgeR:DGEList-class]{DGEList}} object with following components:
-	\item{counts}{read count matrix tallying up the number of reads with particular barcode and hairpin/sgRNA matches. Each row is a hairpin and each column is a sample}
+	\item{counts}{read count matrix tallying up the number of reads with particular barcode and hairpin/sgRNA matches. Each row is a hairpin/sgRNA and each column is a sample}
 	\item{genes}{In this case, hairpin/sgRNA-specific information (ID, sequences, corresponding target gene) may be recorded in this data.frame}
 	\item{lib.size}{auto-calculated column sum of the counts matrix}
 }
 
 \details{
-The \code{processAmplicons} function allows for hairpins/sgRNAs/sample index sequences to be in variable locations within each read.
+The \code{processAmplicons} function allows for hairpins/sgRNAs/sample index sequences to be in variable positions within each read.
 
 The input barcode file and hairpin/sgRNA files are tab-separated text files with at least two columns (named 'ID' and 'Sequences') containing the sample or hairpin/sgRNA ids and a second column indicating the sample index or hairpin/sgRNA sequences to be matched.
 If \code{dualIndexForwardRead} is \code{TRUE}, a third column 'Sequences2' is expected in the barcode file.
@@ -59,13 +59,12 @@ For further examples and data, refer to the case studies available from \url{htt
 \note{
 This function replaced the earlier function \code{processHairpinReads} in edgeR 3.7.17.
 
-This function replaces the previous \code{processAmplicons} functions, which expected the sequences in the fastq files to have a fixed structure (as per Figure 1A of Dai et al, 2014)
+This function replaces the previous \code{processAmplicons} function, which expected the sequences in the fastq files to have a fixed structure (as per Figure 1A of Dai et al., 2014)
 
-This function can be used, and is intended for, reads where hairpins/sgRNAs/sample index sequences are in random locations within each read. Output graphs are intended as a check on the positions of the matches, to determine if too many erroneous sequences are found.
-
+This function can be used, and is intended for, reads where hairpins/sgRNAs/sample index sequences can be in variable positions within each read. When \code{plotPositions=TRUE} a density plot of the  match positions is created to allow the user to assess whether they occur in the expected postions.
 }
 
-\author{Zhiyin Dai and Matthew Ritchie}
+\author{Oliver Voogd, Zhiyin Dai, Shian Su and Matthew Ritchie}
 
 \references{
 Dai Z, Sheridan JM,  Gearing, LJ, Moore, DL, Su, S, Wormald, S, Wilcox, S, O'Connor, L, Dickins, RA, Blewitt, ME, Ritchie, ME(2014).

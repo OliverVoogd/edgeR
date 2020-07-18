@@ -1204,10 +1204,14 @@ Process_Hairpin_Reads(char *filename, char *filename2){
       // This index is used to increment a counter in the summary table
       barcode_index = locate_barcode(line, &barcode_start_position);
     }
+
     if (barcode_index > 0) {
       // Record the position this barcode was found in, in the read.
       barcodecount++;
-      barcode_positions_size = Increment_Resize_Array(&barcode_positions, barcode_positions_size, barcode_start_position); 
+      if (barcodesInHeader <= 0) {
+        // We don't care about the position of the barcodes found if the barcodes are found in the header line
+        barcode_positions_size = Increment_Resize_Array(&barcode_positions, barcode_positions_size, barcode_start_position); 
+      }
     }
 
     // Using trie matching, find a valid hairpin within the read.
@@ -1302,6 +1306,7 @@ Output_Summary_Table(char *output){
 
   output: the file to write to
   */
+  Rprintf("outputting the summary table to file %s\n", output);
   int i, j;
   FILE *fout;
   fout = fopen(output, "w");
@@ -1313,6 +1318,7 @@ Output_Summary_Table(char *output){
     fprintf(fout, "\n");
   }
   fclose(fout);
+  Rprintf("Finished outputting the summary table\n");
 }
 
 void
@@ -1324,6 +1330,8 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
 
   output: the file to write to
   */
+  Rprintf("Outputting Sequence locs to file: %s\n", output);
+  
   int j;
   long max_size;
   if (size < longest_read_length) {
@@ -1340,6 +1348,7 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
   }
   fprintf(fout, "\n");
   fclose(fout);
+  Rprintf("Finished Outputting sequences locs\n");
 }
 
 /*
@@ -1389,6 +1398,7 @@ Clean_Up(void){
   /*
   Deallocate all space for arrays created
   */
+  Rprintf("Cleaning up the data\n");
   int index;
   // free the barcode array
   for (index = 1; index <= num_barcode; index++){
@@ -1414,6 +1424,7 @@ Clean_Up(void){
   }
   free(summary);
 
+  Rprintf("Clearing the Tries\n");
   //free the hairpin & barcode tries
   Clear_Trie(barcode_single_trie_head);
   if (is_PairedReads) {
@@ -1423,6 +1434,7 @@ Clean_Up(void){
   }
   Clear_Trie(hairpin_trie_head);
   
+  Rprintf("Clearing the resize arrays\n");
   free(barcode_positions);
   free(hairpin_positions);
 }
