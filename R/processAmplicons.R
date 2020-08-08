@@ -178,8 +178,8 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
     ## following line was originally;
 
     ## ensure to revert back to this as this will properly call the processHairpinReads file as it is compiled
-    #.C("processHairpinReads", as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
-    .C(.cxx_processHairpinReads, as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
+    .C("processHairpinReads", as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
+    #.C(.cxx_processHairpinReads, as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
 	     as.character(readfile), as.character(readfile2), as.integer(numfiles),
        as.character(tempbarcodefile), as.character(temphairpinfile),
 	     as.integer(barcodelength), as.integer(barcode2length), as.integer(barcodelengthReverse),
@@ -221,8 +221,7 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
     }
   }, error = function(err) {print(paste("ERROR MESSAGE:  ",err))}
   )
-  
-  #invisible(readline("Enter to Continue"))
+
   
   if (exists("hairpinReadsSummary")) {
   
@@ -232,8 +231,8 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
       stop("Number of barcodes from result count matrix doesn't agree with given barcode list. ")
     colnames(hairpinReadsSummary) = barcodeIDs
     rownames(hairpinReadsSummary) = hairpinIDs
-    #x <- edgeR::DGEList(counts = hairpinReadsSummary, genes = hairpins)
-    x <- DGEList(counts = hairpinReadsSummary, genes = hairpins)
+    x <- edgeR::DGEList(counts = hairpinReadsSummary, genes = hairpins)
+    #x <- DGEList(counts = hairpinReadsSummary, genes = hairpins)
     if(!is.null(barcodes$group)) {
       x$samples = cbind("ID"=barcodes$ID, "lib.size"=x$samples$lib.size, 
                        "norm.factors"=x$samples$norm.factors,

@@ -22,7 +22,8 @@ typedef struct {
 } a_hairpin;
 
 typedef struct {
-  long sequence_index;
+  int original_seq_index;
+  int current_seq_index;
 } end_node;
 
 typedef struct trie_node trie_node;
@@ -34,7 +35,7 @@ struct trie_node {
     end_node *end;
 };
 
-
+// perhaps this barcodes array should be replaced with a hashtable??
 a_barcode **barcodes;
 a_hairpin **hairpins;
 trie_node *hairpin_trie_head;
@@ -133,7 +134,7 @@ Initialise_Node(char base){
 }
 
 trie_node*
-Initialise_End_Node(char base, long sequence_index) {
+Initialise_End_Node(char base, int original_seq_index, int current_seq_index) {
   /* 
   The end node is a special trie node, containing the index of the sequence 
   which ends at this node in the corresponding barcode or hairpin array
@@ -143,7 +144,8 @@ Initialise_End_Node(char base, long sequence_index) {
   trie_node *this_node = Initialise_Node(base);
   end_node *end = (end_node *)malloc(sizeof(end_node));
 
-  end->sequence_index = sequence_index;
+  end->original_seq_index = original_seq_index;
+  end->current_seq_index = current_seq_index;
   this_node->end = end;
   return this_node;
 }
@@ -181,7 +183,7 @@ Add_Node(trie_node *node, char base) {
 }
 
 trie_node*
-Add_End_Node(trie_node *node, char base, long sequence_index) {
+Add_End_Node(trie_node *node, char base, int original_seq_index, int current_seq_index) {
   /* 
   Adds an end node to the trie, which contains all of the 
   same data as a regular node, but with an additional array
@@ -192,7 +194,7 @@ Add_End_Node(trie_node *node, char base, long sequence_index) {
   return: a pointer to the new node created
   */
   node->count++;
-  trie_node *new_node = Initialise_End_Node(base, sequence_index);
+  trie_node *new_node = Initialise_End_Node(base, original_seq_index, current_seq_index);
   node->links[Get_Links_Position(base)] = new_node;
   return new_node;
 }
@@ -233,7 +235,8 @@ Build_Trie_Hairpins(void) {
       }
     }
     // insert the final TERMINATOR @
-    current_node = Add_End_Node(current_node, TERMINATOR, hairpins[hp_i]->original_pos);
+    // Hairpins must be unique, and this is checked in R wrapper
+    current_node = Add_End_Node(current_node, TERMINATOR, hairpins[hp_i]->original_pos, hp_i);
 
     // increment the last node in the sequence's count, before we insert the next string
     current_node->count++;
@@ -297,10 +300,18 @@ Build_Trie_Barcodes(bool is_paired, bool is_dualindex) {
       }
     }
     // insert the final TERMINATOR @
-    // Barcodes are assumed to be unique, as uniqueness checking is performed in wrapper R functino
-    current_node = Add_End_Node(current_node, TERMINATOR, bc_i);
+    // Barcodes aren't always unique, as through using paired reads or dual indexing,
+    // the barcode struct will be unique but the barcode sequence or sequenceRev or sequence2 won't necessairly be.
+    // so, only add a terminator node if one doesn't always exist.
+    if (!Base_In_Node(current_node, TERMINATOR)) {
+      current_node = Add_End_Node(current_node, TERMINATOR, barcodes[bc_i]->original_pos, bc_i);
+    } else {
+      current_node = current_node->links[Get_Links_Position(TERMINATOR)];
+    }
+
     // increment the last node in the sequence's count, before we insert the next string
     current_node->count++;
+    // @TODO: REMOVE ALL COUNT REFERENCES, AS IT WAS MERELY FOR DEBUGGING
   }
 
   return head;
@@ -523,7 +534,7 @@ locate_sequence_in_trie(trie_node *trie_head, char *read, int *found_position) {
   trie_head: the head of the trie to search, can be either a barcode trie or a hairpin trie.
   read: the fastq read to search through
   found_position: a pointer to an int which will be used as an out parameter, to store the position in the read the sequence was found at
-  return: the index of the read in the hairpins or barcode array, or -1 if not found
+  return: the original index of the read in the hairpins or barcode array, or -1 if not found
   */
   long read_length = strlen(read);
   int i, j;
@@ -540,7 +551,7 @@ locate_sequence_in_trie(trie_node *trie_head, char *read, int *found_position) {
         current_node = current_node->links[Get_Links_Position(TERMINATOR)];
         end = current_node->end;
         *found_position = i;
-        return end->sequence_index;
+        return end->original_seq_index;
       } else if (Base_In_Node(current_node, base)) {
         // If we can continue traversing the trie, move to the next node
         current_node = current_node->links[Get_Links_Position(base)];
@@ -554,9 +565,103 @@ locate_sequence_in_trie(trie_node *trie_head, char *read, int *found_position) {
       current_node = current_node->links[Get_Links_Position(TERMINATOR)];
       end = current_node->end;
       *found_position = i;
-      return end->sequence_index;
+    
+      return end->original_seq_index;
     }
   }
+  *found_position = -1;
+  return -1;
+}
+
+int
+mismatch_trie_aux(trie_node *current_node, char *read, int pos, int mismatch_left, bool original_pos) {
+  /*
+  Recursive function used to find a valid sequence match within a given trie in a given read.
+  Starting from pos, move through the read and the trie until we either find an end node,
+  or we run out of mismatches and no valid links.
+  Prioritises valid links over mismatched links, and doesn't call on same link twice
+
+  current_node: the current node in the trie to follow the links of
+  read: the read to match a sequence in
+  pos: the position in the read we are up to
+  mismatch_left: the number of mismatches left to use. 0 indicates we can only follow a link 
+    if read[pos] == that link
+  original_position: flag to determine if we return the original position of the sequence found, or if false
+    the current position of that sequence in the array
+  return: the original index of the sequence mismatched.
+  */
+  
+  // Check if we can terminate
+  if (Base_In_Node(current_node, TERMINATOR)) {
+    current_node = current_node->links[Get_Links_Position(TERMINATOR)];
+    if (original_pos) {
+      return (current_node->end)->original_seq_index;
+    } else {
+      return (current_node->end)->current_seq_index;
+    }
+  }
+  
+  int match = -1; // denotes the index of links which matches the read[pos] base
+  int index;
+  // check if we can follow a valid link.
+  // if we can, follow it and check that the result was valid then return.
+  if (Base_In_Node(current_node, read[pos])) {
+    match = Get_Links_Position(read[pos]);
+    index = mismatch_trie_aux(current_node->links[Get_Links_Position(read[pos])],
+            read, pos + 1, mismatch_left, original_pos);
+    if (index > 0) {
+      return index;
+    }
+  }
+  
+  // Essentially the default case, follow all links that are valid in the current node
+  // decrementing the mismatch_left count to reflect that at this point we are
+  // mismatching bases in order to find a valid sequence.
+  if (mismatch_left == 0) {
+    return -1;
+  }
+  int i;
+  for (i = 1; i < 5; i++) {
+    if (i != match && current_node->links[i] != NULL) {
+      index = mismatch_trie_aux(current_node->links[i], read, pos + 1, mismatch_left - 1, original_pos);
+      
+      if (index > 0) {
+        return index;
+      }
+    }
+  }
+  
+  return -1;
+}
+
+int 
+locate_mismatch_in_trie(trie_node *trie_head, char *read, int sequence_length, int mismatch_count, int *found_position, bool original_pos) {
+  /*
+  Find a mismatched sequence within the given read using trie mismatching.
+  For every position in the read, use trie mismatching to find a matching sequence. If there's no match,
+  move to the next read position.
+
+  trie_head: the trie to use to match sequences
+  read: the read to find sequences in
+  sequence_length: the length of the sequences contained within the trie
+  mismatch_count: the number of mismatches before a sequence is considered invalid
+  found_position: location to store the position the sequence was found in
+  original_position: flag to determine if we return the original position of the sequence found, or if false
+    the current position of that sequence in the array
+  return: the original_position of the sequence matched in the trie, or -1 if not found
+  post-cond: *found_position value is -1 if no sequence found, or >=0 if found
+  */
+  int len = strlen(read);
+  int i, index;
+  for (i = 0; i < len - sequence_length; i++) {
+    index = mismatch_trie_aux(trie_head, read, i, mismatch_count, original_pos);
+
+    if (index > 0) {
+      *found_position = i;
+      return index;
+    }
+  }
+  
   *found_position = -1;
   return -1;
 }
@@ -589,60 +694,6 @@ Valid_Match(char *sequence1, char *sequence2, int length, int threshold){
   } else {
     return false;
   }
-}
-
-bool
-Same_Forward_Barcode(int barcode1_index, int barcode2_index) {
-  /*
-  Determines if the given barcode indices in the barcodes array have the same forward barcode
-
-  barcode1_index: the index of the first barcode to compare, in barcodes array
-  barcode2_index: the index of the second barcode to compare.
-  return: true if the same forward barcode, false otherwise
-  */  
-  if (barcode1_index  < 1 || barcode2_index < 1) {
-    return false;
-  }
-  if (strcmp(barcodes[barcode1_index]->sequence, barcodes[barcode2_index]->sequence) == 0) {
-    return true;
-  }
-  return false;
-}
-
-int
-locate_mismatch_barcode_single(char *a_barcode) {
-  /*
-  Finds if the given barcode appears in the barcode array, with allowance
-  for mismatches with bases
-  a_barcode: the barcode to find
-  return: the index of the found barcode, or -1 if not found
-  */
- int i;
- for (i = 1; i <= num_barcode; i++) {
-   if (Valid_Match(a_barcode, barcodes[i]->sequence, barcode_length, barcode_n_mismatch)) {
-     return barcodes[i]->original_pos;
-   }
- }
- return -1;
-}
-
-int
-locate_mismatch_barcode_paired(char *a_barcode, char *a_barcode_rev) {
-  /*
-  Mismatch searching for the input barcodes in the barcode array.
-  Allows for slight variation in the bases appearing in each barcode.
-  a_barcode: the forward barcode read
-  a_barcode_rev: the reverse barcode read for paired end matching
-  return: the index of the found barcode, or -1 if not found.
-  */
-  int i;
-  for (i = 1; i <= num_barcode; i++){
-    if ((Valid_Match(a_barcode, barcodes[i]->sequence, barcode_length, barcode_n_mismatch)) && 
-        (Valid_Match(a_barcode_rev, barcodes[i]->sequenceRev, barcode_length_rev, barcode_n_mismatch))) {
-        return barcodes[i]->original_pos;
-    }
-  }
-  return -1;
 }
 
 int
@@ -717,6 +768,43 @@ binary_search_barcode_dualindex(char *a_barcode, char *a_barcode2) {
   return -1;
 }
 
+
+int
+locate_mismatch_barcode_single(char *a_barcode) {
+  /*
+  Finds if the given barcode appears in the barcode array, with allowance
+  for mismatches with bases
+  a_barcode: the barcode to find
+  return: the index of the found barcode, or -1 if not found
+  */
+ int i;
+ for (i = 1; i <= num_barcode; i++) {
+   if (Valid_Match(a_barcode, barcodes[i]->sequence, barcode_length, barcode_n_mismatch)) {
+     return barcodes[i]->original_pos;
+   }
+ }
+ return -1;
+}
+
+int
+locate_mismatch_barcode_paired(char *a_barcode, char *a_barcode_rev) {
+  /*
+  Mismatch searching for the input barcodes in the barcode array.
+  Allows for slight variation in the bases appearing in each barcode.
+  a_barcode: the forward barcode read
+  a_barcode_rev: the reverse barcode read for paired end matching
+  return: the index of the found barcode, or -1 if not found.
+  */
+  int i;
+  for (i = 1; i <= num_barcode; i++){
+    if ((Valid_Match(a_barcode, barcodes[i]->sequence, barcode_length, barcode_n_mismatch)) && 
+        (Valid_Match(a_barcode_rev, barcodes[i]->sequenceRev, barcode_length_rev, barcode_n_mismatch))) {
+        return barcodes[i]->original_pos;
+    }
+  }
+  return -1;
+}
+
 int
 locate_barcode(char *read, int *found_position) {
   /*
@@ -734,17 +822,10 @@ locate_barcode(char *read, int *found_position) {
 
   // search the read for a mismatched barcode
   if (allow_mismatch > 0) {
-    int i;
-    int read_length = strlen(read);
-    char *a_barcode = (char *)malloc(barcode_length * sizeof(char));
-    for (i = 0; i < read_length - barcode_length; i++) {
-      strncpy(a_barcode, read + i, barcode_length);
-      barcode_index = locate_mismatch_barcode_single(a_barcode);
+    barcode_index = locate_mismatch_in_trie(barcode_single_trie_head, read, barcode_length, barcode_n_mismatch, found_position, true);
 
-      if (barcode_index > 0) {
-        *found_position = i;
-        return barcode_index;
-      }
+    if (barcode_index > 0) {
+      return barcode_index;
     }
   }
   // if not found, set found_position as -1
@@ -768,6 +849,7 @@ locate_barcode_paired(char *read, char *read_rev, int *found_position) {
   int found_rev_position = 0;
   int found_for_position = 0;
   int barcode1_index, barcode2_index, found;
+  int b_arr;
   char *barcode1, *barcode2;
 
   // match each barcode using trie matching, and copy the barcode from the read to local variables,
@@ -794,26 +876,66 @@ locate_barcode_paired(char *read, char *read_rev, int *found_position) {
     }
   }
 
-  // very inefficient mismatching. Improve with wildcard trie matching
+  // this trie mismatching is still wayy too slow.
+  // for pooledscreen4, probably takes 70 minutes to terminate.
+  // is there a way to do it faster?
   if (allow_mismatch > 0) {
-    int i, j;
-    int read_length = strlen(read);
-    int read_rev_length = strlen(read_rev);
-    char *a_barcode = (char *)malloc(barcode_length * sizeof(char));
-    char *a_barcode_rev = (char *)malloc(barcode_length_rev * sizeof(char));
-    for (i = 0; i < read_length - barcode_length; i++) {
-      strncpy(a_barcode, read + i, barcode_length);
-      if (locate_mismatch_barcode_single(a_barcode) > 0) {
-        for (j = 0; j < read_rev_length; j++) {
-          strncpy(a_barcode_rev, read_rev + j, barcode_length_rev);
-          found = locate_mismatch_barcode_paired(a_barcode, a_barcode_rev);
+    // we need to move through the read until we find one match, then find a match in the other read. If they link up, Great!
+    // Otherwise, we need to move to start searching again from where we finished
+    int i = 0, j = 0; // i denotes the position in the first read we are currently matching from, j denotes same for second read
+    int read_len = strlen(read);
+    int read2_len = strlen(read_rev);
+    while (i < (read_len - barcode_length)) {
+      //Rprintf("\nread1 loop%d", i);
+      // for mismatching, we get locate_mismatch_in_trie to return the current index of the barcodes found in the current barcode trie (the sorted one),
+      // rather than the sequences original position.
+      // This means that we cannot simply return that index.
+      // We use that index to get the string of the sequence matched by our function (which could be done by copying read + found_for_position, but this
+      //                                                                          would return a string with possibel incorrect bases due to mismatching).
+      // Once we have those strings, search througth the barcodes array to find the matching barcode pair
+      barcode1_index = locate_mismatch_in_trie(barcode_single_trie_head, read + i, barcode_length, barcode_n_mismatch, &found_for_position, false);
 
-          if (found > 0) {
-            *found_position = i;
-            return found;
-          }
-        }
+      if (barcode1_index <= 0) {
+        *found_position = -1;
+        return -1;
       }
+
+      j = 0;
+      while(j < (read2_len - barcode_length_rev)) {
+        //Rprintf("\tread2 loop%d", j);
+        barcode2_index = locate_mismatch_in_trie(barcode_paired_trie_head, read_rev + j, barcode_length_rev, barcode_n_mismatch, &found_rev_position, false);
+
+        if (barcode2_index <= 0) {
+          break;
+        }
+
+        // this is the slowest bit, which really needs to be improved. How? 
+        // Knowing that the barcodes array is sorted before we build the trie, and that
+        // each time we add the same barcode we don't change the end node location
+        // we can return the position of the start of the chain of barcodes that are the same
+        // which is simply the position returned by locate_mismatch_in_trie when setting the
+        // original_pos arg to false.
+        
+        // b_arr denotes the index of the barcode we are currently checking to determine if we can find a barcode
+        // containing both sequence and sequenceRev given by the indices of barcode1_index and barcode2_index respectivily.
+        /*
+        b_arr = barcode1_index;
+        while (strncmp(barcodes[b_arr]->sequence, barcodes[barcode1_index]->sequence, barcode_length) == 0) {
+          if (strncmp(barcodes[b_arr]->sequenceRev, barcodes[barcode2_index]->sequenceRev, barcode_length_rev) == 0) {
+            *found_position = i + found_rev_position;
+            return barcodes[b_arr]->original_pos;
+          }
+          b_arr++;
+        }
+        */
+        b_arr = binary_search_barcode_paired(barcodes[barcode1_index]->sequence, barcodes[barcode2_index]->sequenceRev);
+        if (b_arr > 0) {
+          return b_arr;
+        }
+        j = j + found_rev_position + 1;
+      }
+      
+      i = i + found_for_position + 1;
     }
   }
 
@@ -835,6 +957,7 @@ locate_barcode_dualIndexing(char *read, int *found_position){
   int found_for_position = 0;
   int found_dual_position = 0;
   int barcode1_index, barcode2_index, found;
+  int b_arr;
   char *barcode1, *barcode2;
   // locate the forward read barcode
   barcode1_index = locate_sequence_in_trie(barcode_single_trie_head, read, &found_for_position);
@@ -860,57 +983,53 @@ locate_barcode_dualIndexing(char *read, int *found_position){
   }
 
   if (allow_mismatch > 0) {
-    int i, j;
-    int read_length = strlen(read);
-    char *a_barcode = (char *)malloc(barcode_length * sizeof(char));
-    char *a_barcode2 = (char *)malloc(barcode2_length * sizeof(char));
-    for (i = 0; i < read_length - barcode_length; i++) {
-      strncpy(a_barcode, read + i, barcode_length);
-      if (locate_mismatch_barcode_single(a_barcode) > 0) {
-        for (j = 0; j < read_length; j++) {
-          strncpy(a_barcode2, read + j, barcode2_length);
-          found = locate_mismatch_barcode_paired(a_barcode, a_barcode2);
+    // we need to move through the read until we find one match, then find a match in the other read. If they link up, Great!
+    // Otherwise, we need to move to start searching again from where we finished
+    int i = 0, j = 0; // i denotes the position in the first read we are currently matching from, j denotes same for second read
+    int read_len = strlen(read);
+    while (i < (read_len - barcode_length)) {
+      // match the first barcode in the read, returning the current position of it in the barcodes array
+      barcode1_index = locate_mismatch_in_trie(barcode_single_trie_head, read + i, barcode_length, barcode_n_mismatch, &found_for_position, false);
 
-          if (found > 0) {
-            *found_position = i;
-            return found;
-          }
-        }
+      if (barcode1_index <= 0) {
+        *found_position = -1;
+        return -1;
       }
+
+      j = 0;
+      while(j < (read_len - barcode2_length)) {
+        // match the second barcode in the read, returning the current position of it in the barcodes array
+        barcode2_index = locate_mismatch_in_trie(barcode_dualindex_trie_head, read + j, barcode2_length, barcode_n_mismatch, &found_dual_position, false);
+
+        if (barcode2_index <= 0) {
+          break;
+        }
+        
+        // b_arr denotes the index of the barcode we are currently checking to determine if we can find a barcode
+        // containing both sequence and sequenceRev given by the indices of barcode1_index and barcode2_index respectivily.
+        /*
+        b_arr = barcode1_index;
+        while (strncmp(barcodes[b_arr]->sequence, barcodes[barcode1_index]->sequence, barcode_length) == 0) {
+          if (strncmp(barcodes[b_arr]->sequence2, barcodes[barcode2_index]->sequence2, barcode2_length) == 0) {
+            *found_position = i + found_dual_position;
+            return barcodes[b_arr]->original_pos;
+          }
+          b_arr++;
+        }
+        */
+       b_arr = binary_search_barcode_dualindex(barcodes[barcode1_index]->sequence, barcodes[barcode2_index]->sequence2);
+       if (b_arr > 0) {
+         return b_arr;
+       }
+        j = j + found_dual_position + 1;
+      }
+      
+      i = i + found_for_position + 1;
     }
   }
   
-  /* @TODO REMOVE THIS
-  if (allow_mismatch > 0) {
-    int i;
-    for (i = 1; i <= num_barcode; i++){
-      if ((Valid_Match(a_barcode, barcodes[i]->sequence, barcode_length, barcode_n_mismatch)) && 
-	    (Valid_Match(a_barcode2, barcodes[i]->sequence2, barcode2_length, barcode_n_mismatch))) {
-        return barcodes[i]->original_pos;
-      }
-    }
-  }
-  */
+
   *found_position = -1;
-  return -1;
-}
-
-
-int
-locate_mismatch_hairpin(char *a_hairpin){
-  /*
-  Using a given hairpin, compare to all hairpins in the hairpin array
-  to find a match, using a given mismatch amount (the number of bases which can vary before
-  we decide the hairpin is not a match)
-  a_hairpin: the hairpin to match
-  return: the index of the hairpin in the hairpins array, or -1 if not found
-  */
-  int i;
-  for (i = 1; i <= num_hairpin; i++){
-    if (Valid_Match(a_hairpin, hairpins[i]->sequence, hairpin_length, hairpin_n_mismatch)) {
-      return hairpins[i]->original_pos;
-    }
-  }
   return -1;
 }
 
@@ -935,20 +1054,11 @@ locate_hairpin(char *read, int *barcode_found_position, int *hairpin_found_posit
   }
 
   // search the read for a mismatched hairpin
-  // @TODO test the allow_mismatch functionality of this function
   if (allow_mismatch > 0) {
-    int i;
-    int read_length = strlen(read);
-    char *a_hairpin = (char *)malloc(hairpin_length * sizeof(char));
-    for (i = 0; i < read_length - hairpin_length; i++) {
-      // copy the possible hairpin at this i position and check if a mismatch hairpin exists
-      strncpy(a_hairpin, read + i, hairpin_length);
-      hairpin_index = locate_mismatch_hairpin(a_hairpin);
-
-      if (hairpin_index > 0) {
-        *hairpin_found_position = i;
-        return hairpin_index;
-      }
+    hairpin_index = locate_mismatch_in_trie(hairpin_trie_head, read + barcode_start + barcode_length - 1, 
+                                            hairpin_length, hairpin_n_mismatch, hairpin_found_position, true);
+    if (hairpin_index > 0) {
+      return hairpin_index;
     }
   }
   *barcode_found_position = -1;
@@ -1190,7 +1300,8 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     }
     num_read++;
     num_read_thisfile++;
-    
+    //Rprintf("%ld|", line_count);
+
     // Match the barcodes based on the input arguments for the type of barcode matching
     if (is_PairedReads > 0){    
       // Using trie matching, find a matching barcode forward and reverse sequence in the two lines
@@ -1306,7 +1417,6 @@ Output_Summary_Table(char *output){
 
   output: the file to write to
   */
-  Rprintf("outputting the summary table to file %s\n", output);
   int i, j;
   FILE *fout;
   fout = fopen(output, "w");
@@ -1318,7 +1428,7 @@ Output_Summary_Table(char *output){
     fprintf(fout, "\n");
   }
   fclose(fout);
-  Rprintf("Finished outputting the summary table\n");
+
 }
 
 void
@@ -1330,7 +1440,7 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
 
   output: the file to write to
   */
-  Rprintf("Outputting Sequence locs to file: %s\n", output);
+
   
   int j;
   long max_size;
@@ -1348,7 +1458,6 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
   }
   fprintf(fout, "\n");
   fclose(fout);
-  Rprintf("Finished Outputting sequences locs\n");
 }
 
 /*
@@ -1398,7 +1507,6 @@ Clean_Up(void){
   /*
   Deallocate all space for arrays created
   */
-  Rprintf("Cleaning up the data\n");
   int index;
   // free the barcode array
   for (index = 1; index <= num_barcode; index++){
@@ -1424,7 +1532,6 @@ Clean_Up(void){
   }
   free(summary);
 
-  Rprintf("Clearing the Tries\n");
   //free the hairpin & barcode tries
   Clear_Trie(barcode_single_trie_head);
   if (is_PairedReads) {
@@ -1433,8 +1540,7 @@ Clean_Up(void){
     Clear_Trie(barcode_dualindex_trie_head);
   }
   Clear_Trie(hairpin_trie_head);
-  
-  Rprintf("Clearing the resize arrays\n");
+
   free(barcode_positions);
   free(hairpin_positions);
 }
@@ -1502,6 +1608,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
              *verbose, *barcodesInHeader);
 
   Read_In_Barcodes(*barcodeseqs); 
+  Sort_Barcodes(); // bubble sort. Is there a better sort??
 
   // build our barcode trie based on paired reads or dual indexing
   if (is_PairedReads > 0) {
@@ -1511,7 +1618,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
   }
   // Always build the single read trie no matter the index method is, as locating the forward read barcode is always required
   barcode_single_trie_head = Build_Trie_Barcodes(false, false);
-  Sort_Barcodes(); // bubble sort. Is there a better sort??
+
 
   Read_In_Hairpins(*hairpinseqs);
   Sort_Hairpins();  // radix sort
