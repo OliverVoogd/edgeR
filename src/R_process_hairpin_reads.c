@@ -35,7 +35,6 @@ struct trie_node {
     end_node *end;
 };
 
-// perhaps this barcodes array should be replaced with a hashtable??
 a_barcode **barcodes;
 a_hairpin **hairpins;
 trie_node *hairpin_trie_head;
@@ -45,6 +44,9 @@ trie_node *barcode_dualindex_trie_head;
 
 long *barcode_positions;
 int barcode_positions_size;
+// barcode2_positions is for use with either dual indexed reads or paired end reads
+long *barcode2_positions;
+int barcode2_positions_size;
 long *hairpin_positions;
 int hairpin_positions_size;
 
@@ -59,20 +61,6 @@ int barcode_length;
 int barcode2_length;
 int barcode_length_rev;
 int hairpin_length;
-
-/*
-int barcode_start;
-int barcode_end;
-int barcode2_start;
-int barcode2_end;
-int barcode_start_rev;
-int barcode_end_rev;
-int hairpin_start;
-int hairpin_end;
-int allow_shifting;
-int shifting_n_base; 
-int allow_shifted_mismatch;
-*/
 
 int allow_mismatch;
 int barcode_n_mismatch;
@@ -834,7 +822,7 @@ locate_barcode(char *read, int *found_position) {
 }
 
 int
-locate_barcode_paired(char *read, char *read_rev, int *found_position) {
+locate_barcode_paired(char *read, char *read_rev, int *found_position, int *found2_position) {
   /*
   Locate a barcode pair in the given forward and reverse reads,
   initially using trie matching to find barcode strings in the reads,
@@ -858,6 +846,7 @@ locate_barcode_paired(char *read, char *read_rev, int *found_position) {
   if (barcode1_index < 1) {
     // if we didn't find a barcode, terminate
     *found_position = -1;
+    *found2_position = -1;
     return -1;
   }
 
@@ -872,64 +861,37 @@ locate_barcode_paired(char *read, char *read_rev, int *found_position) {
     found = binary_search_barcode_paired(barcode1, barcode2);
     if (found > 0) {
         *found_position = found_for_position;
+        *found2_position = found_rev_position;
         return found;
     }
   }
 
-  // this trie mismatching is still wayy too slow.
-  // for pooledscreen4, probably takes 70 minutes to terminate.
-  // is there a way to do it faster?
   if (allow_mismatch > 0) {
-    // we need to move through the read until we find one match, then find a match in the other read. If they link up, Great!
-    // Otherwise, we need to move to start searching again from where we finished
     int i = 0, j = 0; // i denotes the position in the first read we are currently matching from, j denotes same for second read
     int read_len = strlen(read);
     int read2_len = strlen(read_rev);
     while (i < (read_len - barcode_length)) {
-      //Rprintf("\nread1 loop%d", i);
-      // for mismatching, we get locate_mismatch_in_trie to return the current index of the barcodes found in the current barcode trie (the sorted one),
-      // rather than the sequences original position.
-      // This means that we cannot simply return that index.
-      // We use that index to get the string of the sequence matched by our function (which could be done by copying read + found_for_position, but this
-      //                                                                          would return a string with possibel incorrect bases due to mismatching).
-      // Once we have those strings, search througth the barcodes array to find the matching barcode pair
       barcode1_index = locate_mismatch_in_trie(barcode_single_trie_head, read + i, barcode_length, barcode_n_mismatch, &found_for_position, false);
 
       if (barcode1_index <= 0) {
         *found_position = -1;
+        *found2_position = -1;
         return -1;
       }
 
       j = 0;
       while(j < (read2_len - barcode_length_rev)) {
-        //Rprintf("\tread2 loop%d", j);
         barcode2_index = locate_mismatch_in_trie(barcode_paired_trie_head, read_rev + j, barcode_length_rev, barcode_n_mismatch, &found_rev_position, false);
 
         if (barcode2_index <= 0) {
           break;
         }
-
-        // this is the slowest bit, which really needs to be improved. How? 
-        // Knowing that the barcodes array is sorted before we build the trie, and that
-        // each time we add the same barcode we don't change the end node location
-        // we can return the position of the start of the chain of barcodes that are the same
-        // which is simply the position returned by locate_mismatch_in_trie when setting the
-        // original_pos arg to false.
-        
         // b_arr denotes the index of the barcode we are currently checking to determine if we can find a barcode
         // containing both sequence and sequenceRev given by the indices of barcode1_index and barcode2_index respectivily.
-        /*
-        b_arr = barcode1_index;
-        while (strncmp(barcodes[b_arr]->sequence, barcodes[barcode1_index]->sequence, barcode_length) == 0) {
-          if (strncmp(barcodes[b_arr]->sequenceRev, barcodes[barcode2_index]->sequenceRev, barcode_length_rev) == 0) {
-            *found_position = i + found_rev_position;
-            return barcodes[b_arr]->original_pos;
-          }
-          b_arr++;
-        }
-        */
         b_arr = binary_search_barcode_paired(barcodes[barcode1_index]->sequence, barcodes[barcode2_index]->sequenceRev);
         if (b_arr > 0) {
+          *found_position = found_for_position;
+          *found2_position = found_rev_position;
           return b_arr;
         }
         j = j + found_rev_position + 1;
@@ -940,11 +902,12 @@ locate_barcode_paired(char *read, char *read_rev, int *found_position) {
   }
 
   *found_position = -1;
+  *found2_position = -1;
   return -1;
 }
 
 int
-locate_barcode_dualIndexing(char *read, int *found_position){
+locate_barcode_dualIndexing(char *read, int *found_position, int *found2_position){
   /* 
   Using a similar procedure to paired matching for barcodes, search for the first barcode in the read
   And if we found one, search for the second in the read from the end of that barcode onwards.
@@ -963,6 +926,7 @@ locate_barcode_dualIndexing(char *read, int *found_position){
   barcode1_index = locate_sequence_in_trie(barcode_single_trie_head, read, &found_for_position);
   if (barcode1_index < 1) {
     *found_position = -1;
+    *found2_position = -1;
     return -1;
   }
 
@@ -978,13 +942,12 @@ locate_barcode_dualIndexing(char *read, int *found_position){
     found = binary_search_barcode_dualindex(barcode1, barcode2);
     if (found > 0) {
         *found_position = found_for_position;
+        *found2_position = found_dual_position;
         return found;
     }
   }
 
   if (allow_mismatch > 0) {
-    // we need to move through the read until we find one match, then find a match in the other read. If they link up, Great!
-    // Otherwise, we need to move to start searching again from where we finished
     int i = 0, j = 0; // i denotes the position in the first read we are currently matching from, j denotes same for second read
     int read_len = strlen(read);
     while (i < (read_len - barcode_length)) {
@@ -993,6 +956,7 @@ locate_barcode_dualIndexing(char *read, int *found_position){
 
       if (barcode1_index <= 0) {
         *found_position = -1;
+        *found2_position = -1;
         return -1;
       }
 
@@ -1007,18 +971,10 @@ locate_barcode_dualIndexing(char *read, int *found_position){
         
         // b_arr denotes the index of the barcode we are currently checking to determine if we can find a barcode
         // containing both sequence and sequenceRev given by the indices of barcode1_index and barcode2_index respectivily.
-        /*
-        b_arr = barcode1_index;
-        while (strncmp(barcodes[b_arr]->sequence, barcodes[barcode1_index]->sequence, barcode_length) == 0) {
-          if (strncmp(barcodes[b_arr]->sequence2, barcodes[barcode2_index]->sequence2, barcode2_length) == 0) {
-            *found_position = i + found_dual_position;
-            return barcodes[b_arr]->original_pos;
-          }
-          b_arr++;
-        }
-        */
        b_arr = binary_search_barcode_dualindex(barcodes[barcode1_index]->sequence, barcodes[barcode2_index]->sequence2);
        if (b_arr > 0) {
+         *found_position = found_for_position;
+         *found2_position = found_dual_position;
          return b_arr;
        }
         j = j + found_dual_position + 1;
@@ -1146,7 +1102,7 @@ Base_to_Int(char* base) {
 void
 Count_Sort_Hairpins(long index, a_hairpin** input_hairpins, a_hairpin** sorted_hairpins) {
   /* 
-  Implements Count Sort, which stable sorts the input_hairpins, making use of the intermediate
+  Implements Count Sort, which stable-y sorts the input_hairpins, making use of the intermediate
   sorted_hairpins array given, to store the sorted hairpins as we find their positions.
   
   index: the index of the hairpin to sort based on
@@ -1256,6 +1212,7 @@ Process_Hairpin_Reads(char *filename, char *filename2){
   int barcode_index = -1;
   int hairpin_index;
   int barcode_start_position = 0;
+  int barcode2_start_position = 0;
   int hairpin_start_position = 0;
   long this_read_length = 0;
 
@@ -1275,9 +1232,14 @@ Process_Hairpin_Reads(char *filename, char *filename2){
       // if the barcodes are in the header of each fastq group, we need to search line_count % 4 == 1 for the barcode
       if ((line_count % 4 ) == 1) {
         if (barcodesInHeader > 0) {
-          // search the header line for the barcode. New Implementations of barcode searching using header line should go here
+          // search the header line for the barcode. 
           if (is_PairedReads > 0) {
-            barcode_index = locate_barcode_paired(line, line2, &barcode_start_position);
+            barcode_index = locate_barcode_paired(line, line2, &barcode_start_position, &barcode2_start_position);
+            barcode2_start_position = -1;
+            barcode_start_position = -1;
+          } else if (is_PairedReads > 0) {
+            barcode_index = locate_barcode_dualIndexing(line, &barcode_start_position, &barcode2_start_position);
+            barcode2_start_position = -1;
             barcode_start_position = -1;
           } else {
             barcode_index = locate_barcode(line, &barcode_start_position);
@@ -1300,21 +1262,24 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     }
     num_read++;
     num_read_thisfile++;
-    //Rprintf("%ld|", line_count);
 
     // Match the barcodes based on the input arguments for the type of barcode matching
-    if (is_PairedReads > 0){    
-      // Using trie matching, find a matching barcode forward and reverse sequence in the two lines
-      barcode_index = locate_barcode_paired(line, line2, &barcode_start_position);
-    } else if (is_DualIndexingReads > 0) {
-      // Uising trie matching, find a matching barcode forward and 2nd sequence in the single line
-      barcode_index = locate_barcode_dualIndexing(line, &barcode_start_position);
-    } else if (barcodesInHeader <= 0) { 
+    // does barcodes_in_header need to work for dual index and paired end reads??
+    if (barcodes_in_header <= 0) {
+      if (is_PairedReads > 0){    
+        // Using trie matching, find a matching barcode forward and reverse sequence in the two lines
+        barcode_index = locate_barcode_paired(line, line2, &barcode_start_position, &barcode2_start_position);
+      } else if (is_DualIndexingReads > 0) {
+        // Uising trie matching, find a matching barcode forward and 2nd sequence in the single line
+        barcode_index = locate_barcode_dualIndexing(line, &barcode_start_position, &barcode2_start_position);
+      } else { 
+        // The main barcode matching for single read sequences. Uses trie matching to find the 'original index' of the barcode in the barcodes array
+        // This index is used to increment a counter in the summary table
+        barcode_index = locate_barcode(line, &barcode_start_position);
+      }
       // Nothing needs to be done if the barcodes are in the header, as they are already found
-      // The main barcode matching for single read sequences. Uses trie matching to find the 'original index' of the barcode in the barcodes array
-      // This index is used to increment a counter in the summary table
-      barcode_index = locate_barcode(line, &barcode_start_position);
     }
+
 
     if (barcode_index > 0) {
       // Record the position this barcode was found in, in the read.
@@ -1322,6 +1287,10 @@ Process_Hairpin_Reads(char *filename, char *filename2){
       if (barcodesInHeader <= 0) {
         // We don't care about the position of the barcodes found if the barcodes are found in the header line
         barcode_positions_size = Increment_Resize_Array(&barcode_positions, barcode_positions_size, barcode_start_position); 
+        
+        if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
+          barcode2_positions_size = Increment_Resize_Array(&barcode2_positions, barcode2_positions_size, barcode2_start_position);
+        } 
       }
     }
 
@@ -1405,6 +1374,10 @@ Initialise(int IsPaired, int IsDualIndexing,
   longest_read_length = 0;
   barcode_positions = Initialise_Resize_Array(read_length);
   barcode_positions_size = read_length;
+  if (is_DualIndexingReads > 0 || is_PairedReads > 0) {
+    barcode2_positions = Initialise_Resize_Array(read_length);
+    barcode2_positions_size = read_length;
+  }
   hairpin_positions = Initialise_Resize_Array(read_length);
   hairpin_positions_size = read_length;
 }
@@ -1440,8 +1413,6 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
 
   output: the file to write to
   */
-
-  
   int j;
   long max_size;
   if (size < longest_read_length) {
@@ -1460,26 +1431,6 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
   fclose(fout);
 }
 
-/*
-long
-Calculate_Average_Position_Array(long *arr, int size) {
-  
-  Calculates the average value of an array, by summing and dividing by size.
-
-  arr: the array to average
-  size: the length of the array.
-  return: the average value of the array.
-  
-  long sum = 0;
-  long sum_weights = 0;
-  int i;
-  for (i = 0; i < size; i++) {
-    sum += (arr[i] * i);
-    sum_weights += arr[i];
-  }
-  return sum/sum_weights;
-}
-*/
 void
 Clear_Trie(trie_node *node) {
   /* 
@@ -1487,7 +1438,6 @@ Clear_Trie(trie_node *node) {
   Calls this function on each linked node, then frees this node
 
   node: a pointer to the current node to free
-
   */
     int i;
     if (node->end != NULL) {
@@ -1495,7 +1445,6 @@ Clear_Trie(trie_node *node) {
     }
     for (i = 0; i < 5; i++) {
         if (node->links[i] != NULL) {
-            //char link_base = node->links[i]->base;
             Clear_Trie(node->links[i]);
         }
     }
@@ -1541,7 +1490,11 @@ Clean_Up(void){
   }
   Clear_Trie(hairpin_trie_head);
 
+  // free all positions arrays
   free(barcode_positions);
+  if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
+    free(barcode2_positions);
+  }
   free(hairpin_positions);
 }
 
@@ -1573,7 +1526,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
                     int *hairpinLength,
                     int *allowMismatch, int *barcodemismatch, int *hairpinmismatch,
                     char **output, int *verbose, int *barcodesInHeader,
-                    char **barcodePosFile, char **hairpinPosFile)
+                    char **barcodePosFile, char **barcode2PosFile, char **hairpinPosFile)
 {  
   /* 
   The entry point for the processAmplicons function.
@@ -1598,7 +1551,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
   output: the main output file, to which the barcode and hairpin match counts will be recorded
   verbose: denotes if extra text output should be provided upon execution of the function
   barcodesInHeader: denotes if barcodes should be matched in the header of each read
-  barcodePosFile, hairpinPosFile: the files to which the positions of barcode and hairpin matches should be recorded.
+  barcodePosFile, barcode2PosFile, hairpinPosFile: the files to which the positions of barcode and hairpin matches should be recorded.
   */
   // retrieves all our pointer data and stores it as local variables
   Initialise(*isPairedReads, *isDualIndexingReads,
@@ -1608,7 +1561,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
              *verbose, *barcodesInHeader);
 
   Read_In_Barcodes(*barcodeseqs); 
-  Sort_Barcodes(); // bubble sort. Is there a better sort??
+  Sort_Barcodes();
 
   // build our barcode trie based on paired reads or dual indexing
   if (is_PairedReads > 0) {
@@ -1656,11 +1609,12 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
   Rprintf("There are %ld reads (%.4f percent) with hairpin matches\n", hairpincount, 100.0*hairpincount/num_read);
   Rprintf("There are %ld reads (%.4f percent) with both barcode and hairpin matches\n", bchpcount, 100.0*bchpcount/num_read);
 
-  //Rprintf("The average position of the barcode matches was %ld\n", Calculate_Average_Position_Array(barcode_positions, barcode_positions_size));
-  //Rprintf("The average position of the hairpin matches was %ld\n", Calculate_Average_Position_Array(hairpin_positions, hairpin_positions_size));
   Output_Summary_Table(*output);
 
   Output_Sequence_Locations(*barcodePosFile, barcode_positions, barcode_positions_size);
+  if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
+    Output_Sequence_Locations(*barcode2PosFile, barcode2_positions, barcode2_positions_size);
+  }
   Output_Sequence_Locations(*hairpinPosFile, hairpin_positions, hairpin_positions_size);
 
   Clean_Up();

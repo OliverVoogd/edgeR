@@ -1,0 +1,5 @@
+.vscode
+.Rproj.user
+src/*.o
+src/*.so
+src/*.dll

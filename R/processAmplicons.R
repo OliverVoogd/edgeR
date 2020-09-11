@@ -162,6 +162,9 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
   tempbarcodeposfile <- paste("BarcodePosition", as.character(Sys.getpid()), "Summary.txt", sep="_")
   on.exit({if (file.exists(tempbarcodeposfile)) { file.remove(tempbarcodeposfile) }}, add=TRUE)
   
+  tempbarcode2posfile <- paste("Barcode2Position", as.character(Sys.getpid()), "Summary.txt", sep="_")
+  on.exit({if (file.exists(tempbarcode2posfile)) { file.remove(tempbarcode2posfile) }}, add=TRUE)
+  
   temphairpinposfile <- paste("HairpinPosition", as.character(Sys.getpid()), "Summary.txt", sep="_")
   on.exit({if (file.exists(temphairpinposfile)) {file.remove(temphairpinposfile) }}, add=TRUE)
 
@@ -175,18 +178,14 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
     }
     
     ## calls the c function .cxx_processHairpinReads which fills data into tempoutfile
-    ## following line was originally;
-
-    ## ensure to revert back to this as this will properly call the processHairpinReads file as it is compiled
-    .C("processHairpinReads", as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
-    #.C(.cxx_processHairpinReads, as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
+    .C(.cxx_processHairpinReads, as.integer(IsPairedReads), as.integer(IsDualIndexingOnForwardRead), 
 	     as.character(readfile), as.character(readfile2), as.integer(numfiles),
        as.character(tempbarcodefile), as.character(temphairpinfile),
 	     as.integer(barcodelength), as.integer(barcode2length), as.integer(barcodelengthReverse),
 	     as.integer(hairpinlength),
        as.integer(allowMismatch), as.integer(barcodeMismatchBase), as.integer(hairpinMismatchBase),
        as.character(tempoutfile), as.integer(verbose), as.integer(barcodesInHeader),
-	     as.character(tempbarcodeposfile), as.character(temphairpinposfile))      
+	     as.character(tempbarcodeposfile), as.character(tempbarcode2posfile), as.character(temphairpinposfile))      
 
     ## retrive all of the calculated data
     hairpinReadsSummary <- read.table(tempoutfile, sep="\t", header=FALSE) 
@@ -200,11 +199,20 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
                                            counts = barcodePositionSummary$V1)
       barcodePositionSummary <- rbind(oneRowFrame, barcodePositionSummary)
       
+      if (IsPairedReads || IsDualIndexingOnForwardRead) {
+        barcode2PositionSummary <- read.table(tempbarcode2posfile, sep="\t", header=FALSE)
+        barcode2PositionSummary <- data.frame(read_position=c(1:nrow(barcode2PositionSummary)),
+                                              counts=barcode2PositionSummary$V1)
+        barcode2PositionSummary <- rbind(oneRowFrame, barcode2PositionSummary)
+      }
+      
       hairpinPositionSummary <- read.table(temphairpinposfile, sep="\t", header=FALSE)
       hairpinPositionSummary <- data.frame(read_position = c(1:nrow(hairpinPositionSummary)),
                                            counts = hairpinPositionSummary$V1)
       hairpinPositionSummary <- rbind(oneRowFrame, hairpinPositionSummary)
-
+      
+      plotColours <- c("firebrick", "navyblue")
+      legendNames <- c("Barcodes", "Hairpins")
       plot(NULL, 
            xlim=c(0, max(max(barcodePositionSummary$read_position), max(hairpinPositionSummary$read_position))), 
            ylim=c(0, max(max(barcodePositionSummary$counts, max(hairpinPositionSummary$counts)))),
@@ -213,11 +221,32 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
            main = "Barcode & Hairpin Position in Reads")
       polygon(barcodePositionSummary$read_position, barcodePositionSummary$counts, col="firebrick", border="firebrick")
       polygon(hairpinPositionSummary$read_position, hairpinPositionSummary$counts, col="navyblue", border="navyblue")
+      
       legend(x=max(barcodePositionSummary$read_position) - 20, y=max(barcodePositionSummary$counts), 
-             legend=c("Barcodes", "Hairpins"), 
-             col=c("firebrick", "navyblue"),
-             fill=c("firebrick", "navyblue"))
-    
+             legend=legendNames, 
+             col=plotColours,
+             fill=plotColours)
+      
+      
+      if (IsPairedReads || IsDualIndexingOnForwardRead) {
+        title <- "Paired Read Barcode Positions in Reads"
+        plotColour <- "purple"
+        if (IsDualIndexingOnForwardRead) {
+          title <- "Dual Indexed Barcode Positions in Reads"
+        }
+        
+        plot(NULL, 
+             xlim=c(0, max(barcode2PositionSummary$read_position)), 
+             ylim=c(0, max(barcode2PositionSummary$counts)),
+             ylab = "Sequence Counts",
+             xlab = "Read Position",
+             main =title)
+        polygon(barcode2PositionSummary$read_position, barcode2PositionSummary$counts, col=plotColour, border=plotColour)
+        legend(x=max(barcode2PositionSummary$read_position) - 40, y=max(barcode2PositionSummary$counts), 
+               legend=c("Second Barcodes"), 
+               col=plotColour,
+               fill=plotColour)
+      }
     }
   }, error = function(err) {print(paste("ERROR MESSAGE:  ",err))}
   )
@@ -244,10 +273,12 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
     stop("An error occured in processHairpinReads.")
   }
   
+  # remove all of these??
   if (file.exists(tempbarcodefile)) { file.remove(tempbarcodefile) }
   if (file.exists(temphairpinfile)) { file.remove(temphairpinfile) }
   if (file.exists(tempoutfile)) { file.remove(tempoutfile) }
   if (file.exists(tempbarcodeposfile)) { file.remove(tempbarcodeposfile) }
+  if (file.exists(tempbarcode2posfile)) { file.remove(tempbarcode2posfile) }
   if (file.exists(temphairpinposfile)) {file.remove(temphairpinposfile) }
   return(x)
 }
