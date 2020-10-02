@@ -66,6 +66,7 @@ int allow_mismatch;
 int barcode_n_mismatch;
 int hairpin_n_mismatch;
 int isverbose;
+int plotPositions;
 
 long barcodecount;
 long hairpincount;
@@ -1283,7 +1284,7 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     if (barcode_index > 0) {
       // Record the position this barcode was found in, in the read.
       barcodecount++;
-      if (barcodes_in_header <= 0) {
+      if (plotPositions && barcodes_in_header <= 0) {
         // We don't care about the position of the barcodes found if the barcodes are found in the header line
         barcode_positions_size = Increment_Resize_Array(&barcode_positions, barcode_positions_size, barcode_start_position); 
         
@@ -1297,7 +1298,9 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     hairpin_index = locate_hairpin(line, &barcode_start_position, &hairpin_start_position); 
     if (hairpin_index > 0){
       hairpincount++;
-      hairpin_positions_size = Increment_Resize_Array(&hairpin_positions, hairpin_positions_size, hairpin_start_position);
+      if (plotPositions) {
+        hairpin_positions_size = Increment_Resize_Array(&hairpin_positions, hairpin_positions_size, hairpin_start_position);
+      }
     }
        
     // Increment the count for the specific barcode and hairpin
@@ -1332,7 +1335,7 @@ Initialise(int IsPaired, int IsDualIndexing,
            int hairpinLength,
            int allowMismatch, int barcodemismatch, int hairpinmismatch, 
            int verbose,
-           int barcodesInHeader){
+           int barcodesInHeader, int plot_positions){
 	/* 
   Initiliases all local variables with given values
   isPaired: determines whether two reads are given, for forward and reverse reads
@@ -1363,6 +1366,7 @@ Initialise(int IsPaired, int IsDualIndexing,
   barcode_n_mismatch = barcodemismatch;
   hairpin_n_mismatch = hairpinmismatch;
   isverbose = verbose;
+  plotPositions = plot_positions;
 
   num_read = 0;
   barcodecount = 0;
@@ -1371,14 +1375,16 @@ Initialise(int IsPaired, int IsDualIndexing,
 
   long read_length = 100;
   longest_read_length = 0;
-  barcode_positions = Initialise_Resize_Array(read_length);
-  barcode_positions_size = read_length;
-  if (is_DualIndexingReads > 0 || is_PairedReads > 0) {
-    barcode2_positions = Initialise_Resize_Array(read_length);
-    barcode2_positions_size = read_length;
+  if (plotPositions) {
+    barcode_positions = Initialise_Resize_Array(read_length);
+    barcode_positions_size = read_length;
+    if (is_DualIndexingReads > 0 || is_PairedReads > 0) {
+      barcode2_positions = Initialise_Resize_Array(read_length);
+      barcode2_positions_size = read_length;
+    }
+    hairpin_positions = Initialise_Resize_Array(read_length);
+    hairpin_positions_size = read_length;
   }
-  hairpin_positions = Initialise_Resize_Array(read_length);
-  hairpin_positions_size = read_length;
 }
 
 void
@@ -1490,11 +1496,13 @@ Clean_Up(void){
   Clear_Trie(hairpin_trie_head);
 
   // free all positions arrays
-  free(barcode_positions);
-  if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
-    free(barcode2_positions);
+  if (plotPositions) {
+    free(barcode_positions);
+    if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
+      free(barcode2_positions);
+    }
+    free(hairpin_positions);
   }
-  free(hairpin_positions);
 }
 
 void
@@ -1524,7 +1532,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
                     int *barcodeLength, int *barcode2Length, int *barcodeLengthRev,
                     int *hairpinLength,
                     int *allowMismatch, int *barcodemismatch, int *hairpinmismatch,
-                    char **output, int *verbose, int *barcodesInHeader,
+                    char **output, int *verbose, int *barcodesInHeader, int *plot_positions,
                     char **barcodePosFile, char **barcode2PosFile, char **hairpinPosFile)
 {  
   /* 
@@ -1550,6 +1558,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
   output: the main output file, to which the barcode and hairpin match counts will be recorded
   verbose: denotes if extra text output should be provided upon execution of the function
   barcodesInHeader: denotes if barcodes should be matched in the header of each read
+  plot_positions: determines if index positions of each sequence found should be recored, to be plotted by R
   barcodePosFile, barcode2PosFile, hairpinPosFile: the files to which the positions of barcode and hairpin matches should be recorded.
   */
   // retrieves all our pointer data and stores it as local variables
@@ -1557,7 +1566,7 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
              *barcodeLength, *barcode2Length, *barcodeLengthRev, 
              *hairpinLength,
              *allowMismatch, *barcodemismatch, *hairpinmismatch, 
-             *verbose, *barcodesInHeader);
+             *verbose, *barcodesInHeader, *plot_positions);
 
   Read_In_Barcodes(*barcodeseqs); 
   Sort_Barcodes();
@@ -1610,11 +1619,12 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
 
   Output_Summary_Table(*output);
 
-  Output_Sequence_Locations(*barcodePosFile, barcode_positions, barcode_positions_size);
-  if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
-    Output_Sequence_Locations(*barcode2PosFile, barcode2_positions, barcode2_positions_size);
+  if (plotPositions) {
+    Output_Sequence_Locations(*barcodePosFile, barcode_positions, barcode_positions_size);
+    if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
+      Output_Sequence_Locations(*barcode2PosFile, barcode2_positions, barcode2_positions_size);
+    }
+    Output_Sequence_Locations(*hairpinPosFile, hairpin_positions, hairpin_positions_size);
   }
-  Output_Sequence_Locations(*hairpinPosFile, hairpin_positions, hairpin_positions_size);
-
   Clean_Up();
 }

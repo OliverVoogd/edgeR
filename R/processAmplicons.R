@@ -184,7 +184,7 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
 	     as.integer(barcodelength), as.integer(barcode2length), as.integer(barcodelengthReverse),
 	     as.integer(hairpinlength),
        as.integer(allowMismatch), as.integer(barcodeMismatchBase), as.integer(hairpinMismatchBase),
-       as.character(tempoutfile), as.integer(verbose), as.integer(barcodesInHeader),
+       as.character(tempoutfile), as.integer(verbose), as.integer(barcodesInHeader), as.integer(plotPositions)
 	     as.character(tempbarcodeposfile), as.character(tempbarcode2posfile), as.character(temphairpinposfile))      
 
     ## retrive all of the calculated data
