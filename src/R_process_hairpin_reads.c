@@ -52,7 +52,7 @@ int hairpin_positions_size;
 
 int is_PairedReads; 
 int is_DualIndexingReads;
-int barcodesInHeader;
+int barcodes_in_header;
 int num_barcode;
 int num_hairpin;
 long num_read;
@@ -66,7 +66,6 @@ int allow_mismatch;
 int barcode_n_mismatch;
 int hairpin_n_mismatch;
 int isverbose;
-int barcodes_in_header;
 
 long barcodecount;
 long hairpincount;
@@ -1231,7 +1230,7 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     if ((line_count % 4) != 2) {
       // if the barcodes are in the header of each fastq group, we need to search line_count % 4 == 1 for the barcode
       if ((line_count % 4 ) == 1) {
-        if (barcodesInHeader > 0) {
+        if (barcodes_in_header > 0) {
           // search the header line for the barcode. 
           if (is_PairedReads > 0) {
             barcode_index = locate_barcode_paired(line, line2, &barcode_start_position, &barcode2_start_position);
@@ -1284,7 +1283,7 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     if (barcode_index > 0) {
       // Record the position this barcode was found in, in the read.
       barcodecount++;
-      if (barcodesInHeader <= 0) {
+      if (barcodes_in_header <= 0) {
         // We don't care about the position of the barcodes found if the barcodes are found in the header line
         barcode_positions_size = Increment_Resize_Array(&barcode_positions, barcode_positions_size, barcode_start_position); 
         
@@ -1333,7 +1332,7 @@ Initialise(int IsPaired, int IsDualIndexing,
            int hairpinLength,
            int allowMismatch, int barcodemismatch, int hairpinmismatch, 
            int verbose,
-           int BarcodesInHeader){
+           int barcodesInHeader){
 	/* 
   Initiliases all local variables with given values
   isPaired: determines whether two reads are given, for forward and reverse reads
@@ -1346,7 +1345,7 @@ Initialise(int IsPaired, int IsDualIndexing,
   barcodemismatch: the number of mismatch bases allowed before the sequence does not match
   hairpinmismatch: same as barcodemismatch, for hairpins
   verbose: if the user expects extra text printing during execution
-  BarcodesInHeader: determines if barcodes should be search for in the header line of each read 
+  barcodesInHeader: determines if barcodes should be search for in the header line of each read 
     that is, the line immediately above the read line in a fastq file (the linecount % 4 == 1, if the first line is line 1)
   */
   num_barcode = 0;
@@ -1354,7 +1353,7 @@ Initialise(int IsPaired, int IsDualIndexing,
 
   is_PairedReads = IsPaired;
   is_DualIndexingReads = IsDualIndexing;
-  barcodesInHeader = BarcodesInHeader;
+  barcodes_in_header = barcodesInHeader;
   barcode_length = barcodeLength;
   barcode2_length = barcode2Length;
   barcode_length_rev = barcodeLengthRev;
@@ -1370,7 +1369,7 @@ Initialise(int IsPaired, int IsDualIndexing,
   hairpincount = 0;
   bchpcount = 0;
 
-  long read_length = 50;
+  long read_length = 100;
   longest_read_length = 0;
   barcode_positions = Initialise_Resize_Array(read_length);
   barcode_positions_size = read_length;
