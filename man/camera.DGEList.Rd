@@ -49,7 +49,7 @@ Practicing safe statistics with the mid-p.
 
 Wu, D, and Smyth, GK (2012). Camera: a competitive gene set test accounting for inter-gene correlation.
 \emph{Nucleic Acids Research} 40, e133.
-\url{https://doi.org/10.1093/nar/gks461}
+\doi{10.1093/nar/gks461}
 }
 
 \seealso{

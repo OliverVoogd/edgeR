@@ -1,7 +1,7 @@
 read10X <- function(mtx=NULL,genes=NULL,barcodes=NULL,path=".",DGEList=TRUE)
 #	Read 10X Genomics Matrix Exchange Format files created by CellRanger
 #	Gordon Smyth
-#	Created 10 Jan 2018. Last modified 24 Apr 2019.
+#	Created 10 Jan 2018. Last modified 3 March 2021.
 {
 #	Get file names
 	if(is.null(mtx) || is.null(genes) || is.null(barcodes)) {
@@ -29,8 +29,12 @@ read10X <- function(mtx=NULL,genes=NULL,barcodes=NULL,path=".",DGEList=TRUE)
 	genes <- file.path(path,genes)
 	if(!is.null(barcodes)) barcodes <- file.path(path,barcodes)
 
-#	Fetch header info for checking
-	N <- scan(mtx,skip=2,what=0L,sep=" ",nmax=3,quiet=TRUE)
+#	Count comment lines in mtx file
+	m <- substring(readLines(mtx,n=8),1,1)
+	n.mtx.comment.lines <- which(m != "%")[1] - 1L
+
+#	Fetch mtx header info for checking
+	N <- scan(mtx,skip=n.mtx.comment.lines,what=0L,sep=" ",nmax=3,quiet=TRUE)
 	ngenes <- N[1]
 	ncells <- N[2]
 	nmtx <- N[3]
@@ -42,7 +46,7 @@ read10X <- function(mtx=NULL,genes=NULL,barcodes=NULL,path=".",DGEList=TRUE)
 	if(ncol(Genes) > 1L) names(Genes)[2] <- "Type"
 
 #	Read mtx file of counts
-	m <- read.table(mtx,skip=3,header=FALSE,comment.char="",sep=" ",colClasses="integer",nrows=nmtx)
+	m <- read.table(mtx,skip=n.mtx.comment.lines+1L,header=FALSE,comment.char="",sep=" ",colClasses="integer",nrows=nmtx)
 
 #	Convert Market Exchange Format to ordinary matrix
 	y <- matrix(0L,ngenes,ncells)

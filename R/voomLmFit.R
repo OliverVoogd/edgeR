@@ -2,13 +2,13 @@ voomLmFit <- function(
 	counts, design=NULL, block=NULL, prior.weights=NULL,
 	sample.weights=FALSE, var.design=NULL, var.group=NULL, 
 	lib.size=NULL, normalize.method="none",
-	span=0.5, plot=FALSE, save.plot=FALSE
+	span=0.5, plot=FALSE, save.plot=FALSE, keep.EList=TRUE
 )
 #	limma+lmFit pipeline for counts taking into account of structural zeros
 #	Creates an MArrayLM object for entry to eBayes() etc in the limma pipeline.
 #	Depends on edgeR as well as limma
 #	Gordon Smyth
-#	Created 21 Jan 2020.  Last modified 10 Jun 2020.
+#	Created 21 Jan 2020.  Last modified 16 Mar 2022.
 {
 	Block <- !is.null(block)
 	PriorWeights <- !is.null(prior.weights)
@@ -78,13 +78,14 @@ voomLmFit <- function(
 
 #	Identify fitted values that are exactly zero and should not contribute to the genewise variances
 #	Note that a single zero is never a problem
-	RowHasZero <- which(rowSums(counts==0) >= max(2,MinGroupSize))
+	eps <- 1e-4
+	RowHasZero <- which(rowSums(counts < eps) > (max(2,MinGroupSize)-eps))
 	AnyZeroRows <- as.logical(length(RowHasZero))
 	if(AnyZeroRows) {
 		countsZero <- counts[RowHasZero,,drop=FALSE]
 		PoissonFit <- glmFit(countsZero,design=design,lib.size=lib.size,dispersion=0,prior.count=0)
-		IsZero <- (PoissonFit$fitted.values < 1e-4 & countsZero < 1e-4)
-		RowHasExactZero <- which(rowSums(IsZero) > 0)
+		IsZero <- (PoissonFit$fitted.values < eps & countsZero < eps)
+		RowHasExactZero <- which(rowSums(IsZero) > eps)
 #		If any exact zero fits, then rerun the linear model for those rows with NAs
 		if(length(RowHasExactZero)) {
 			RowHasZero <- RowHasZero[RowHasExactZero]
@@ -254,10 +255,13 @@ voomLmFit <- function(
 		fit$targets <- data.frame(lib.size=lib.size)
 		row.names(fit$targets) <- colnames(y)
 	}
-	if(SampleWeights) fit$targets$sample.weights <- sw
+	if(SampleWeights) fit$targets$sample.weight <- sw
 	if(save.plot) {
 		fit$voom.xy <- list(x=sx,y=sy,xlab="log2( count size + 0.5 )",ylab="Sqrt( standard deviation )")
 		fit$voom.line <- l
+	}
+	if(keep.EList) {
+		fit$EList <- new("EList",list(E=y,weights=weights,genes=out$genes))
 	}
 	fit
 }

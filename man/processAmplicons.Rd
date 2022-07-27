@@ -9,7 +9,7 @@ Given a list of sample-specific index (barcode) sequences and hairpin/sgRNA-spec
 
 \usage{
 processAmplicons(readfile, readfile2=NULL, barcodefile, hairpinfile,
-                    allowMismatch=FALSE, barcodeMismatchBase=1, 
+                    allowMismatch=FALSE, barcodeMismatchBase=1,
                     hairpinMismatchBase=2, dualIndexForwardRead=FALSE,
                     verbose=FALSE, barcodesInHeader=FALSE,
                     plotPositions=FALSE)
@@ -27,7 +27,7 @@ processAmplicons(readfile, readfile2=NULL, barcodefile, hairpinfile,
 \code{barcodefile}) which should be matched}
 \item{verbose}{if \code{TRUE}, output program progress}
 \item{barcodesInHeader}{logical, indicates if barcode sequences should be matched in the header (sequence identifier) of each read (i.e. the first of every group of four lines in the fastq files)}
-\item{plotPositions}{logical, indicates if a density plot displaying the position of each barcode and hairpin/sgRNA sequence in the reads should be created. If \code{dualIndexForwardRead}is \code{TRUE} or \code{readfile2} is not \code{NULL}, plotPositions will generate two density plots, side by side, indicating the positions of the first barcodes and hairpins in the first plot, and second barcodes in the second.}
+\item{plotPositions}{logical, indicates if a density plot displaying the position of each barcode and hairpin/sgRNA sequence in the reads should be created. If \code{dualIndexForwardRead} is \code{TRUE} or \code{readfile2} is not \code{NULL}, plotPositions will generate two density plots, side by side, indicating the positions of the first barcodes and hairpins in the first plot, and second barcodes in the second.}
 }
 
 \value{Returns a \code{\link[edgeR:DGEList-class]{DGEList}} object with following components:
@@ -49,7 +49,7 @@ These files, along with the fastq file/(s) are assumed to be in the current work
 To compute the count matrix, matching to the given barcodes and hairpins/sgRNAs is conducted in two rounds.
 The first round looks for an exact sequence match for the given barcode sequences and hairpin/sgRNA sequences through the entire read, returning the first match found.
 If a match isn't found, the program performs a second round of matching which allows for sequence mismatches if \code{allowMismatch} is set to \code{TRUE}.
-The maximum number of mismatch bases in barcode and hairpin/sgRNA are specified by the parameters \code{barcodeMismatchBase} and \code{hairpinMismatchBase} respectively. 
+The maximum number of mismatch bases in barcode and hairpin/sgRNA are specified by the parameters \code{barcodeMismatchBase} and \code{hairpinMismatchBase} respectively.
 
 The program outputs a \code{\link[edgeR:DGEList-class]{DGEList}} object, with a count matrix indicating the number of times each barcode and hairpin/sgRNA combination could be matched in reads from input fastq file(s).
 
@@ -59,9 +59,7 @@ For further examples and data, refer to the case studies available from \url{htt
 \note{
 This function replaced the earlier function \code{processHairpinReads} in edgeR 3.7.17.
 
-This function replaces the previous \code{processAmplicons} function, which expected the sequences in the fastq files to have a fixed structure (as per Figure 1A of Dai et al., 2014).
-
-This function can be used, and is intended for, reads where hairpins/sgRNAs/sample index sequences can be in variable positions within each read. When \code{plotPositions=TRUE} a density plot of the  match positions is created to allow the user to assess whether they occur in the expected postions.
+This function replaces the previous \code{processAmplicons} function, which expected the sequences in the fastq files to have a fixed structure (as per Figure 1A of Dai et al., 2014). This function can be used, and is intended for, reads where hairpins/sgRNAs/sample index sequences can be in variable positions within each read. When \code{plotPositions=TRUE} a density plot of the  match positions is created to allow the user to assess whether they occur in the expected postions.
 }
 
 \author{Oliver Voogd, Zhiyin Dai, Shian Su and Matthew Ritchie}

@@ -30,14 +30,14 @@
 \method{cpm}{SummarizedExperiment}(y, normalized.lib.sizes = TRUE,
        log = FALSE, prior.count = 2, \dots)
 \method{cpm}{DGEGLM}(y, log = FALSE, shrunk = TRUE, \dots)
-\method{cpm}{default}(y, lib.size = NULL,
+\method{cpm}{default}(y, lib.size = NULL, offset=NULL,
        log = FALSE, prior.count = 2, \dots)
 \method{rpkm}{DGEList}(y, gene.length = NULL, normalized.lib.sizes = TRUE,
        log = FALSE, prior.count = 2, \dots)
 \method{rpkm}{SummarizedExperiment}(y, gene.length = NULL, normalized.lib.sizes = TRUE,
        log = FALSE, prior.count = 2, \dots)
 \method{rpkm}{DGEGLM}(y, gene.length, log = FALSE, shrunk = TRUE, \dots)
-\method{rpkm}{default}(y, gene.length, lib.size = NULL,
+\method{rpkm}{default}(y, gene.length, lib.size = NULL, offset=NULL,
        log = FALSE, prior.count = 2, \dots)
 \method{cpmByGroup}{DGEList}(y, group = NULL, dispersion = NULL, \ldots)
 \method{cpmByGroup}{SummarizedExperiment}(y, group = NULL, dispersion = NULL, \ldots)
@@ -56,7 +56,8 @@
   For \code{cpm} and \code{rpkm}, it can also be a \code{DGEGLM} or \code{DGELRT} object.
 }
 \item{normalized.lib.sizes}{logical, use normalized library sizes?}
-\item{lib.size}{library size, defaults to \code{colSums(y)}.}
+\item{lib.size}{library size, defaults to \code{colSums(y)}. Ignored if \code{offset} is specified.}
+\item{offset}{numeric matrix of same size as \code{y}, or a vector of length \code{ncol(y)}, representing library sizes on the log scale. Can also be a scalar for \code{cpmByGroup.default} and \code{rpkmByGroup.default}. If specified, then takes precedence over \code{lib.size}.}
 \item{log}{logical, if \code{TRUE} then \code{log2} values are returned.}
 \item{prior.count}{average count to be added to each observation to avoid taking log of zero. Used only if \code{log=TRUE}.}
 \item{shrunk}{
@@ -65,7 +66,6 @@
 \item{gene.length}{vector of length \code{nrow(y)} giving gene length in bases, or the name of the column \code{y$genes} containing the gene lengths.}
 \item{group}{factor giving group membership for columns of \code{y}. Defaults to \code{y$sample$group} for the \code{DGEList} method and to a single level factor for the default method.}
 \item{dispersion}{numeric vector of negative binomial dispersions.}
-\item{offset}{numeric matrix of same size as \code{y} giving offsets for the log-linear models.  Can be a scalar or a vector of length \code{ncol(y)}, in which case it is expanded out to a matrix.}
 \item{weights}{numeric vector or matrix of non-negative quantitative weights.
 Can be a vector of length equal to the number of libraries, or a matrix of the same size as \code{y}.}
 \item{\dots}{other arguments are not used.}

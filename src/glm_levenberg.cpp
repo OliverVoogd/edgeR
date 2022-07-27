@@ -18,7 +18,7 @@ const int incx=1, incy=1;
 const double first_scaling=1, second_scaling=1;
 void glm_levenberg::autofill(const double* beta, const double* offset, double* mu) {
     std::copy(offset, offset+nlibs, mu);
-    F77_CALL(dgemv)(&trans, &nlibs, &ncoefs, &first_scaling, design, &nlibs, beta, &incx, &second_scaling, mu, &incy);
+    F77_CALL(dgemv)(&trans, &nlibs, &ncoefs, &first_scaling, design, &nlibs, beta, &incx, &second_scaling, mu, &incy FCONE);
 	for (int lib=0; lib<nlibs; ++lib) {
 		double& cur_mean=mu[lib];
 		cur_mean=std::exp(cur_mean);
@@ -121,7 +121,7 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
             	}
 
             	// Cholesky decomposition, and then use of the decomposition to solve for dbeta in (XtWX)dbeta = dl.
-                F77_CALL(dpotrf)(&uplo, &ncoefs, xtwx_copy.data(), &ncoefs, &info);
+                F77_CALL(dpotrf)(&uplo, &ncoefs, xtwx_copy.data(), &ncoefs, &info FCONE);
                 if (info!=0) {
                     /* If it fails, it MUST mean that the matrix is singular due to numerical imprecision
                      * as all the diagonal entries of the XtWX matrix must be positive. This occurs because of 
@@ -141,7 +141,7 @@ int glm_levenberg::fit(const double* y, const double* offset, const double* disp
             } while (1);
 
             std::copy(dl.begin(), dl.end(), dbeta.begin());
-            F77_CALL(dpotrs)(&uplo, &ncoefs, &nrhs, xtwx_copy.data(), &ncoefs, dbeta.data(), &ncoefs, &info);
+            F77_CALL(dpotrs)(&uplo, &ncoefs, &nrhs, xtwx_copy.data(), &ncoefs, dbeta.data(), &ncoefs, &info FCONE);
             if (info!=0) { 
                 throw std::runtime_error("solution using the Cholesky decomposition failed");
             }

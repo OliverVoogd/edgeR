@@ -6,9 +6,17 @@
 #include <iostream>
 #endif
 
-#include "Rcpp.h"
+#ifndef USE_FC_LEN_T
+#define USE_FC_LEN_T
+#endif
+#include <Rconfig.h>
 #include "R_ext/BLAS.h"
 #include "R_ext/Lapack.h"
+#ifndef FCONE
+#define FCONE
+#endif
+
+#include "Rcpp.h"
 
 #include <vector>
 #include <cmath>

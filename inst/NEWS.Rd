@@ -2,6 +2,61 @@
 \title{edgeR News}
 \encoding{UTF-8}
 
+\section{Version 3.38.0}{\itemize{
+\item
+New argument 'keep.EList' for voomLmFit() to store the normalized log2-CPM values and voom weights.
+}}
+
+
+\section{Version 3.36.0}{\itemize{
+\item
+diffSpliceDGE() now returns p-value=1 instead of NA when an exon has all zero counts.
+\item
+Improve error message from readDGE() when there are repeated gene/tag names.
+}}
+
+
+\section{Version 3.34.0}{\itemize{
+\item
+New function featureCounts2DGEList() that converts results from Rsubread::featureCounts() to DGELists.
+
+\item
+plotMDS.DGEList (the DGEList method of plotMDS) now displays the percentage variance explained by each dimension, and a new argument 'var.explained' is provided to make that optional.
+It no longer calls stats::cmdscale() internally and the 'ndim' argument is removed.
+The "bcv" method is scheduled to be deprecated in a future release of edgeR.
+
+\item
+read10X() now counts the number of comment lines in mtx files and skips those lines when reading in the data.
+
+\item
+Fix a bug in voomLmFit() whereby zeros were sometimes incorrectly identified due to floating point errors.
+}}
+
+
+\section{Version 3.32.0}{\itemize{
+\item
+cpm.default() and rpkm.default() now accept offset.
+
+\item
+scaleOffset() now accepts CompressedMatrix offset and accounts for norm.factors.
+
+\item
+Revise the lowess trend fitting in voomLmFit() to downweight genes with exact zeros and hence fewer df to estimate the variance.
+
+\item
+Add as.data.frame method for DGEList class.
+
+\item
+Change default choice for refColumn in calcNormFactors() with method="TMMwsp". The new method chooses the column with the largest sum of sqrt-counts.
+
+\item
+processAmplicons() can now accommodate data from newer screens that use a staggered primer design.
+
+\item
+Fixed a bug that diffSpliceDGE() accept more than one coef. It now gives a warning if more than one coef or contrast is supplied. It only uses the first.
+}}
+
+
 \section{Version 3.30.2}{\itemize{
 \item
 New function voomLmFit() that combines the limma voom-lmFit pipeline with loss of residual df due to zero counts as for glmQLFit().

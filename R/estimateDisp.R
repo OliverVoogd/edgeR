@@ -86,7 +86,7 @@ estimateDisp.default <- function(y, design=NULL, group=NULL, lib.size=NULL, offs
 #	Classic edgeR
 	if(is.null(design)){
 		# One way
-		cat("Design matrix not provided. Switch to the classic mode.\n")
+		message("Using classic mode.")
 		if(length(levels(group))==1)
 			design <- matrix(1, nlibs, 1)
 		else

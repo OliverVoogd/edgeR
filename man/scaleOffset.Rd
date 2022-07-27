@@ -18,7 +18,7 @@
 }
 
 \value{
-\code{scaleOffset.default} returns a numeric vector if \code{offset} is a vector or a matrix if \code{offset} is a matrix.
+\code{scaleOffset.default} returns a numeric vector if \code{offset} is a vector, a matrix if \code{offset} is a matrix or a \code{CompressedMatrix} object if \code{offset} is a \code{CompressedMatrix}.
 \code{scaleOffset.DGEList} computes the scaled offests and store them in the \code{offset} component of the input \code{DGEList} object.
 }
 

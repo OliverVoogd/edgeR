@@ -69,7 +69,7 @@ Note that the terms `tag' and `gene' are synonymous here. The function is only n
 \references{
 Robinson, MD, and Smyth, GK (2007). Moderated statistical tests for
 assessing differences in tag abundance. \emph{Bioinformatics} 23, 2881-2887.
-\url{http://bioinformatics.oxfordjournals.org/content/23/21/2881}
+\doi{10.1093/bioinformatics/btm453}
 }
 
 \author{Mark Robinson, Davis McCarthy, Yunshun Chen and Gordon Smyth}

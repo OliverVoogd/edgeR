@@ -1,7 +1,7 @@
-plotMDS.DGEList <- function (x,top=500,labels=NULL,pch=NULL,cex=1,dim.plot=c(1,2),ndim=max(dim.plot),gene.selection="pairwise",xlab=NULL,ylab=NULL,method="logFC",prior.count=2,plot=TRUE,...)
+plotMDS.DGEList <- function (x,top=500,labels=NULL,pch=NULL,cex=1,dim.plot=c(1,2),gene.selection="pairwise",xlab=NULL,ylab=NULL,method="logFC",prior.count=2,plot=TRUE,var.explained=TRUE,...)
 #	Multidimensional scaling plot of digital gene expression profiles
 #	Yunshun Chen, Mark Robinson and Gordon Smyth
-#	23 May 2011.  Last modified 26 Nov 2016.
+#	23 May 2011.  Last modified 13 May 2021.
 {
 	method <- match.arg(method, c("logfc","logFC","bcv","BCV"))
 	if(method=="logfc") method <- "logFC"
@@ -10,12 +10,13 @@ plotMDS.DGEList <- function (x,top=500,labels=NULL,pch=NULL,cex=1,dim.plot=c(1,2
 #	Default method is to convert to moderated logCPM and call limma plotMDS
 	if(method=="logFC") {
 		y <- cpm(x,log=TRUE,prior.count=prior.count)
-		return(plotMDS(y,top=top,labels=labels,pch=pch,cex=cex,dim.plot=dim.plot,ndim=ndim,gene.selection=gene.selection,xlab=xlab,ylab=ylab,plot=plot,...))
+		return(plotMDS(y,top=top,labels=labels,pch=pch,cex=cex,dim.plot=dim.plot,gene.selection=gene.selection,xlab=xlab,ylab=ylab,plot=plot,var.explained=var.explained,...))
 	}
 
 #	From here method="bcv"
 
 #	Check x
+	message("Note: the bcv method is now scheduled to be removed in a future release of edgeR.")
 	x$counts <- as.matrix(x$counts)
 	if(!all(is.finite(x$counts))) stop("Missing or infinite counts not allowed")
 
@@ -31,9 +32,10 @@ plotMDS.DGEList <- function (x,top=500,labels=NULL,pch=NULL,cex=1,dim.plot=c(1,2
 	if(!is.null(labels)) labels <- as.character(labels)
 
 #	Check dim
+	ndim <- max(dim.plot)
 	if(ndim < 2) stop("Need at least two dim.plot")
-	if(nsamples < ndim) stop("Too few samples")
-	if(nprobes < ndim) stop("Too few rows")
+	if(nsamples < ndim) stop("ndim is greater than number of samples")
+	if(nprobes < ndim) stop("ndim is greater than number of rows of data")
 
 	x$samples$group <- factor(rep.int(1,nsamples))
 
@@ -63,27 +65,41 @@ plotMDS.DGEList <- function (x,top=500,labels=NULL,pch=NULL,cex=1,dim.plot=c(1,2
 		}
 	}
 
-#	Multidim scaling
-	a1 <- cmdscale(as.dist(dd), k = ndim)
+#	Multi-dimensional scaling
+	dd <- dd + t(dd)
+	rm <- rowMeans(dd)
+	dd <- dd - rm
+	dd <- t(dd) - (rm - mean(rm))
+	mds <- eigen(-dd/2, symmetric=TRUE)
+	names(mds) <- c("eigen.values","eigen.vectors")
 
-#	Check whether dimensions have been removed (because of negative eigenvalues)
-#	Add random variate if necessary
-	ndiff <- ndim-ncol(a1)
-	if(ndiff > 0) a1 <- cbind(a1, matrix(runif(ndiff*nsamples, -1e-6, 1e-6), ncol=ndiff, nrow=nsamples))
-
-	mds <- new("MDS",list(dim.plot=dim.plot,distance.matrix=dd,cmdscale.out=a1,top=top))
-	mds$x <- a1[,dim.plot[1]]
-	mds$y <- a1[,dim.plot[2]]
+#	Make MDS object
+	lambda <- pmax(mds$eigen.values,0)
+	mds$var.explained <- lambda / sum(lambda)
+	mds$dim.plot=dim.plot
+	mds$distance.matrix.squared=dd
+	mds$top=top
+	mds$gene.selection=gene.selection
 	mds$axislabel <- "BCV distance"
+	mds <- new("MDS",unclass(mds))
+
+#	Add coordinates for plot
+	i <- dim.plot[1]
+	mds$x <- mds$eigen.vectors[,i] * sqrt(lambda[i])
+	if(lambda[i] < 1e-13) warning("dimension ", i, " is degenerate or all zero")
+	i <- dim.plot[2]
+	mds$y <- mds$eigen.vectors[,i] * sqrt(lambda[i])
+	if(lambda[i] < 1e-13) warning("dimension ", i, " is degenerate or all zero")
+
 	if(plot)
-		plotMDS(mds,labels=labels,pch=pch,cex=cex,xlab=xlab,ylab=ylab,...)
+		plotMDS(mds,labels=labels,pch=pch,cex=cex,xlab=xlab,ylab=ylab,var.explained=var.explained,...)
 	else
 		mds
 }
 
-plotMDS.SummarizedExperiment <- function(x, top=500, labels=NULL, pch=NULL, cex=1, dim.plot=c(1,2), ndim=max(dim.plot), gene.selection="pairwise", xlab=NULL, ylab=NULL, method="logFC", prior.count=2, plot=TRUE, ...)
-#	Created 03 April 2020.  Last modified 03 April 2020.
+plotMDS.SummarizedExperiment <- function(x, top=500, labels=NULL, pch=NULL, cex=1, dim.plot=c(1,2), gene.selection="pairwise", xlab=NULL, ylab=NULL, method="logFC", prior.count=2, plot=TRUE, var.explained=TRUE, ...)
+#	Created 03 April 2020.  Last modified 13 May 2021.
 {
 	x <- SE2DGEList(x)
-	plotMDS.DGEList(x, top=top, labels=labels, pch=pch, cex=cex, dim.plot=dim.plot, ndim=ndim, gene.selection=gene.selection, xlab=xlab, ylab=ylab, method=method, prior.count=prior.count, plot=plot, ...)
+	plotMDS.DGEList(x, top=top, labels=labels, pch=pch, cex=cex, dim.plot=dim.plot, gene.selection=gene.selection, xlab=xlab, ylab=ylab, method=method, prior.count=prior.count, plot=plot, var.explained=var.explained, ...)
 }

@@ -82,7 +82,7 @@ If \code{contrast} is a matrix with multiple columns, then only the first column
 McCarthy, D. J., and Smyth, G. K. (2009).
 Testing significance relative to a fold-change threshold is a TREAT.
 \emph{Bioinformatics} 25, 765-771.
-\url{http://bioinformatics.oxfordjournals.org/content/25/6/765}
+\doi{10.1093/bioinformatics/btp053}
 }
 
 \examples{

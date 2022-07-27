@@ -9,7 +9,7 @@ Transform count data to log2-counts per million (logCPM), estimate voom precisio
 voomLmFit(counts, design = NULL, block = NULL, prior.weights = NULL,
      sample.weights = FALSE, var.design = NULL, var.group = NULL, 
      lib.size = NULL, normalize.method = "none",
-     span = 0.5, plot = FALSE, save.plot = FALSE)
+     span = 0.5, plot = FALSE, save.plot = FALSE, keep.EList = TRUE)
 }
 \arguments{
   \item{counts}{
@@ -49,6 +49,8 @@ voomLmFit(counts, design = NULL, block = NULL, prior.weights = NULL,
     logical, should a plot of the mean-variance trend be displayed?}
   \item{save.plot}{
     logical, should the coordinates and line of the plot be saved in the output?}
+  \item{keep.EList}{
+    logical. If \code{TRUE}, then the normalized log2-CPM values and voom weights will be saved in the component \code{EList} of the output object.}
 }
 
 \details{
@@ -64,7 +66,7 @@ This function returns \code{df.residual} values that are less than or equal to t
 If \code{block} is specified, then the intra-block correlation is estimated using \code{duplicateCorrelation}
 In that case, the voom weights and the intra-block correlation are each estimated twice to achieve effective convergence.
 
-Empirical sample quality weights will be estimated if \code{sample.weights=TRUE} or if \code{var.design} or \code{var.group} are non-NULL.
+Empirical sample quality weights will be estimated if \code{sample.weights=TRUE} or if \code{var.design} or \code{var.group} are non-NULL (Liu et al 2015).
 In that case, \code{voomLmFit} is analogous to running \code{voomWithQualityWeights} followed by \code{lmFit}.
 
 \code{voomLmFit} is usually followed by running \code{\link{eBayes}} on the fitted model object.
@@ -72,6 +74,13 @@ In that case, \code{voomLmFit} is analogous to running \code{voomWithQualityWeig
 
 \value{
 An MArrayLM object containing linear model fits for each row of data.
+The object includes a \code{targets} data.frame component containing sample annotation.
+Columns of \code{targets} include \code{lib.size} and \code{sample.weight} (if \code{sample.weights=TRUE}).
+
+If \code{save.plot=TRUE} then the output object will include components \code{voom.xy} and \code{voom.line}.
+\code{voom.xy} contains the x and y coordinates of the points in the voom mean-variance plot in the same format as produced by \code{\link{xy.coords}} and \code{voom.line} contained the estimated trend curve.
+
+If \code{keep.EList=TRUE} then the output object includes component \code{EList}, which is an \code{EList} object in the same format as produced by \code{voom} containing the voom log2-CPM values and the voom weights.
 }
 
 \author{Gordon Smyth}
@@ -82,10 +91,15 @@ Voom: precision weights unlock linear model analysis tools for RNA-seq read coun
 \emph{Genome Biology} 15, R29.
 See also the Preprint Version at \url{http://www.statsci.org/smyth/pubs/VoomPreprint.pdf} incorporating some notational corrections.
 
-Lun, ATL, and Smyth, GK (2017).
+Lun, ATL, Smyth, GK (2017).
 No counts, no variance: allowing for loss of degrees of freedom when assessing biological variability from RNA-seq data.
 \emph{Statistical Applications in Genetics and Molecular Biology} 16(2), 83-93.
-\url{https://doi.org/10.1515/sagmb-2017-0010}
+\doi{10.1515/sagmb-2017-0010}
+
+Liu, R, Holik, AZ, Su, S, Jansz, N, Chen, K, Leong, HS, Blewitt, ME, Asselin-Labat, M-L, Smyth, GK, Ritchie, ME (2015).
+Why weight? Modelling sample and observational level variability improves power in RNA-seq analyses.
+\emph{Nucleic Acids Research} 43, e97.
+\doi{10.1093/nar/gkv412}
 }
 
 \seealso{

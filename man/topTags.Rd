@@ -25,14 +25,16 @@ Usually created by \code{exactTest}, \code{glmLRT}, \code{glmTreat} or \code{glm
 }
 
 \details{
-This function accepts a test statistic object created by any of the edgeR functions \code{exactTest}, \code{glmLRT}, \code{glmTreat} or \code{glmQLFTest} and extracts a readable data.frame of the most differentially expressed genes.
+This function is closely analogous to the \code{\link{topTable}} function in the limma package.
+It accepts a test statistic object created by any of the edgeR functions \code{exactTest}, \code{glmLRT}, \code{glmTreat} or \code{glmQLFTest} and extracts a readable data.frame of the most differentially expressed genes.
 The data.frame collates the annotation and differential expression statistics for the top genes.
 The data.frame is wrapped in a \code{TopTags} output object that records the test statistic used and the multiple testing  adjustment method.
 
 \code{TopTags} objects will return dimensions and hence functions such as \code{dim}, \code{nrow} or \code{ncol} are defined on them.
 \code{TopTags} objects also have a \code{show} method so that printing produces a compact summary of their contents.
 
-This function is closely analogous to the \code{\link{topTable}} function in the limma package.
+\code{topTags} permits ranking by fold-change but the authors do not recommend fold-change ranking or fold-change cutoffs for routine RNA-seq analysis.
+The p-value ranking is intended to more biologically meaningful, especially if the p-values were computed using \code{glmTreat}.
 }
 
 \value{
@@ -65,7 +67,7 @@ From reads to genes to pathways: differential expression analysis of RNA-Seq exp
 
 McCarthy, DJ, Chen, Y, Smyth, GK (2012). Differential expression analysis of multifactor RNA-Seq experiments with respect to biological variation.
 \emph{Nucleic Acids Research} 40, 4288-4297.
-\url{https://doi.org/10.1093/nar/gks042}
+\doi{10.1093/nar/gks042}
 
 Robinson MD, Smyth GK (2008). Small-sample estimation of negative binomial dispersion, with applications to SAGE data. \emph{Biostatistics} 9, 321-332.
 

@@ -4,7 +4,7 @@ UseMethod("rpkm")
 rpkm.DGEList <- function(y, gene.length=NULL, normalized.lib.sizes=TRUE, log=FALSE, prior.count=2, ...)
 #	RPKM for a DGEList.
 #	Gordon Smyth.
-#	Created 18 March 2013. Last modified 26 Oct 2018.
+#	Created 18 March 2013. Last modified 22 Oct 2020.
 {
 #	Try to find gene lengths
 #	If column name containing gene lengths isn't specified,
@@ -25,9 +25,14 @@ rpkm.DGEList <- function(y, gene.length=NULL, normalized.lib.sizes=TRUE, log=FAL
 	}
 
 	lib.size <- y$samples$lib.size
-	if(normalized.lib.sizes) lib.size <- lib.size*y$samples$norm.factors
+	if(!is.null(y$offset)){
+		if( min(y$offset) > max(log(lib.size)) || min(log(lib.size)) > max(y$offset) ) warning("Offset may not reflect library sizes. Scaling offset may be required.")
+		lib.size <- NULL
+	} else {
+		if(normalized.lib.sizes) lib.size <- lib.size*y$samples$norm.factors
+	}
 
-	rpkm.default(y=y$counts,gene.length=gene.length,lib.size=lib.size,log=log,prior.count=prior.count, ...)
+	rpkm.default(y=y$counts, gene.length=gene.length, lib.size=lib.size, offset=y$offset, log=log, prior.count=prior.count, ...)
 }
 
 rpkm.SummarizedExperiment <- function(y, gene.length=NULL, normalized.lib.sizes=TRUE, log=FALSE, prior.count=2, ...)
@@ -69,12 +74,12 @@ rpkm.DGELRT <- rpkm.DGEGLM <- function(y, gene.length, log=FALSE, shrunk = TRUE,
 		y/gene.length.kb
 }
 
-rpkm.default <- function(y, gene.length, lib.size=NULL, log=FALSE, prior.count=2, ...)
+rpkm.default <- function(y, gene.length, lib.size=NULL, offset=NULL, log=FALSE, prior.count=2, ...)
 #	Reads per kilobase of gene length per million reads of sequencing (RPKM)
 #	Gordon Smyth
-#	Created 1 November 2012. Last modified 26 Oct 2018.
+#	Created 1 November 2012. Last modified 14 Oct 2020.
 {
-	y <- cpm.default(y=y,lib.size=lib.size,log=log,prior.count=prior.count, ...)
+	y <- cpm.default(y=y, lib.size=lib.size, offset=offset, log=log, prior.count=prior.count, ...)
 	gene.length.kb <- gene.length/1000
 	if(log)
 		y-log2(gene.length.kb)

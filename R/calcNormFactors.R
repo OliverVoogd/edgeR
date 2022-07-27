@@ -58,18 +58,21 @@ calcNormFactors.default <- function(object, lib.size=NULL, method=c("TMM","TMMws
 #	Calculate factors
 	f <- switch(method,
 		TMM = {
-			f75 <- .calcFactorQuantile(data=x, lib.size=lib.size, p=0.75)
-			if( is.null(refColumn) ) refColumn <- which.min(abs(f75-mean(f75)))
-			if(length(refColumn)==0L | refColumn < 1 | refColumn > nsamples) refColumn <- 1L
+			if( is.null(refColumn) ) {
+				f75 <- suppressWarnings(.calcFactorQuantile(data=x, lib.size=lib.size, p=0.75))
+				if(median(f75) < 1e-20) {
+					refColumn <- which.max(colSums(sqrt(x)))
+				} else {
+					refColumn <- which.min(abs(f75-mean(f75)))
+				}
+			}
 			f <- rep_len(NA_real_,nsamples)
 			for(i in 1:nsamples)
 				f[i] <- .calcFactorTMM(obs=x[,i],ref=x[,refColumn], libsize.obs=lib.size[i], libsize.ref=lib.size[refColumn], logratioTrim=logratioTrim, sumTrim=sumTrim, doWeighting=doWeighting, Acutoff=Acutoff)
 			f
 		},
 		TMMwsp = {
-			f75 <- .calcFactorQuantile(data=x, lib.size=lib.size, p=0.75)
-			if( is.null(refColumn) ) refColumn <- which.min(abs(f75-mean(f75)))
-			if(length(refColumn)==0L | refColumn < 1L | refColumn > nsamples) refColumn <- 1L
+			if( is.null(refColumn) ) refColumn <- which.max(colSums(sqrt(x)))
 			f <- rep_len(NA_real_,nsamples)
 			for(i in 1:nsamples)
 				f[i] <- .calcFactorTMMwsp(obs=x[,i],ref=x[,refColumn], libsize.obs=lib.size[i], libsize.ref=lib.size[refColumn], logratioTrim=logratioTrim, sumTrim=sumTrim, doWeighting=doWeighting, Acutoff=Acutoff)
@@ -99,11 +102,13 @@ calcNormFactors.default <- function(object, lib.size=NULL, method=c("TMM","TMMws
 
 .calcFactorQuantile <- function (data, lib.size, p=0.75)
 #	Generalized version of upper-quartile normalization
-#	Mark Robinson
-#	Created 16 Aug 2010. Last modified 2 Jun 2020.
+#	Mark Robinson and Gordon Smyth
+#	Created 16 Aug 2010. Last modified 12 Sep 2020.
 {
-	y <- t(t(data)/lib.size)
-	f <- apply(y,2,function(x) quantile(x,probs=p))
+	f <- rep_len(1,ncol(data))
+	for (j in seq_len(ncol(data))) f[j] <- quantile(data[,j], probs=p)
+	if(min(f)==0) warning("One or more quantiles are zero")
+	f / lib.size
 }
 
 .calcFactorTMM <- function(obs, ref, libsize.obs=NULL, libsize.ref=NULL, logratioTrim=.3, sumTrim=0.05, doWeighting=TRUE, Acutoff=-1e10)

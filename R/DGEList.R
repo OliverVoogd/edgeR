@@ -1,6 +1,6 @@
 DGEList <- function(counts=matrix(0,0,0), lib.size=colSums(counts), norm.factors=rep(1,ncol(counts)), samples=NULL, group=NULL, genes=NULL, remove.zeros=FALSE) 
 #	Construct DGEList object from components, with some checking
-#	Created 28 Sep 2008. Last modified 2 Jun 2020.
+#	Created 28 Sep 2008. Last modified 16 Nov 2020.
 {
 #	Check whether counts is a data.frame
 	if(is.data.frame(counts)) {
@@ -98,7 +98,10 @@ DGEList <- function(counts=matrix(0,0,0), lib.size=colSums(counts), norm.factors
 	if(!is.null(genes)) {
 		genes <- as.data.frame(genes, stringsAsFactors=FALSE)
 		if(nrow(genes) != ntags) stop("Counts and genes have different numbers of rows")
-		row.names(genes) <- row.names(counts)
+		if(anyDuplicated(row.names(counts)))
+			warning("Count matrix has duplicated rownames",call.=FALSE)
+		else 
+			row.names(genes) <- row.names(counts)
 		x$genes <- genes
 	}
 

@@ -39,6 +39,10 @@ If \code{trend=FALSE}, the function computes one-sided hypergeometric tests equi
 If \code{trend=TRUE} or a covariate is supplied, then a trend is fitted to the differential expression results and the method of Young et al (2010) is used to adjust for this trend.
 The adjusted test uses Wallenius' noncentral hypergeometric distribution.
 }
+\note{
+This is the help page for \code{goana} when \code{de} is an edgeR fitted model object.
+See \code{?goana} for other possible input types.
+}
 \value{
 \code{goana} produces a data.frame with a row for each GO term and the following columns:
   \item{Term}{GO term.}

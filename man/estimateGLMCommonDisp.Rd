@@ -54,7 +54,7 @@ See \code{\link{dispCoxReid}} for details of the three methods and a discussion 
 \references{
 McCarthy, DJ, Chen, Y, Smyth, GK (2012). Differential expression analysis of multifactor RNA-Seq experiments with respect to biological variation.
 \emph{Nucleic Acids Research} 40, 4288-4297.
-\url{https://doi.org/10.1093/nar/gks042}
+\doi{10.1093/nar/gks042}
 }
 
 \author{Gordon Smyth, Davis McCarthy, Yunshun Chen}

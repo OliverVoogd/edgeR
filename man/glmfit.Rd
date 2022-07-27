@@ -90,7 +90,7 @@ For example, a contrast of \code{c(0,1,-1)}, assuming there are three coefficien
 \references{
 McCarthy, DJ, Chen, Y, Smyth, GK (2012). Differential expression analysis of multifactor RNA-Seq experiments with respect to biological variation.
 \emph{Nucleic Acids Research} 40, 4288-4297.
-\url{https://doi.org/10.1093/nar/gks042}
+\doi{10.1093/nar/gks042}
 }
 
 \author{Davis McCarthy and Gordon Smyth}

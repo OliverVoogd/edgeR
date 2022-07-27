@@ -112,10 +112,10 @@ Initialise_Node(char base){
   this_node->base = base;
   this_node->count = 0;
   this_node->end = NULL;
-  
+
   int i;
   for (i = 0; i < 5; i++) {
-      this_node->links[i] = NULL;
+    this_node->links[i] = NULL;
   }
   
   return this_node;
@@ -127,7 +127,9 @@ Initialise_End_Node(char base, int original_seq_index, int current_seq_index) {
   The end node is a special trie node, containing the index of the sequence 
   which ends at this node in the corresponding barcode or hairpin array
   base: the base of this new node, which will always be the terminator character.
-  sequence_index: the index in the associated array of sequence which ends at this node.
+  original_seq_index: the index of the sequence in the array before the array is sorted (used for recording the totals)
+  current_seq_index: the current index of the sequence in the sorted array (used for accessing this sequence's associated information)
+  return: a newly initialised end node
   */
   trie_node *this_node = Initialise_Node(base);
   end_node *end = (end_node *)malloc(sizeof(end_node));
@@ -174,11 +176,12 @@ trie_node*
 Add_End_Node(trie_node *node, char base, int original_seq_index, int current_seq_index) {
   /* 
   Adds an end node to the trie, which contains all of the 
-  same data as a regular node, but with an additional array
-  to store the index of the completed hairpin sequences
+  same data as a regular node, but with an additional member variable
+  to store the index of the completed hairpin sequence
   node: a pointer to the node to insert at
   base: the char rep of the node to create
-  sequence_index: the index of the sequence ending at this node
+  original_seq_index: the original index of the sequence in the associated array
+  current_seq_index: the index the sequence is currently in in the array
   return: a pointer to the new node created
   */
   node->count++;
@@ -1237,7 +1240,7 @@ Process_Hairpin_Reads(char *filename, char *filename2){
             barcode_index = locate_barcode_paired(line, line2, &barcode_start_position, &barcode2_start_position);
             barcode2_start_position = -1;
             barcode_start_position = -1;
-          } else if (is_PairedReads > 0) {
+          } else if (is_DualIndexingReads > 0) {
             barcode_index = locate_barcode_dualIndexing(line, &barcode_start_position, &barcode2_start_position);
             barcode2_start_position = -1;
             barcode_start_position = -1;
@@ -1264,7 +1267,6 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     num_read_thisfile++;
 
     // Match the barcodes based on the input arguments for the type of barcode matching
-    // does barcodes_in_header need to work for dual index and paired end reads??
     if (barcodes_in_header <= 0) {
       if (is_PairedReads > 0){    
         // Using trie matching, find a matching barcode forward and reverse sequence in the two lines
@@ -1277,18 +1279,17 @@ Process_Hairpin_Reads(char *filename, char *filename2){
         // This index is used to increment a counter in the summary table
         barcode_index = locate_barcode(line, &barcode_start_position);
       }
-      // Nothing needs to be done if the barcodes are in the header, as they are already found
     }
 
 
     if (barcode_index > 0) {
       // Record the position this barcode was found in, in the read.
       barcodecount++;
-      if (plotPositions && barcodes_in_header <= 0) {
+      if (plotPositions && (barcodes_in_header <= 0)) {
         // We don't care about the position of the barcodes found if the barcodes are found in the header line
         barcode_positions_size = Increment_Resize_Array(&barcode_positions, barcode_positions_size, barcode_start_position); 
         
-        if (is_PairedReads > 0 || is_DualIndexingReads > 0) {
+        if ((is_PairedReads > 0) || (is_DualIndexingReads > 0)) {
           barcode2_positions_size = Increment_Resize_Array(&barcode2_positions, barcode2_positions_size, barcode2_start_position);
         } 
       }
@@ -1420,6 +1421,7 @@ Output_Sequence_Locations(char *output, long *arr, int size) {
   */
   int j;
   long max_size;
+  // don't save more position data than is needed
   if (size < longest_read_length) {
     max_size = size;
   } else {
@@ -1559,7 +1561,9 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
   verbose: denotes if extra text output should be provided upon execution of the function
   barcodesInHeader: denotes if barcodes should be matched in the header of each read
   plot_positions: determines if index positions of each sequence found should be recored, to be plotted by R
-  barcodePosFile, barcode2PosFile, hairpinPosFile: the files to which the positions of barcode and hairpin matches should be recorded.
+  barcodePosFile:
+  barcode2PosFile:
+  hairpinPosFile: the files to which the positions of barcode and hairpin matches should be recorded.
   */
   // retrieves all our pointer data and stores it as local variables
   Initialise(*isPairedReads, *isDualIndexingReads,
@@ -1597,14 +1601,14 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
   }
   
   Rprintf("\nThe input run parameters are: \n");
-  Rprintf(" -- Barcode: length %d\n", barcode_length);  
+  Rprintf(" -- Barcode in forward read: length %d\n", barcode_length);  
   if (is_DualIndexingReads){
     Rprintf(" -- Second Barcode in forward read: length %d\n", barcode2_length); 
   }
   if (is_PairedReads){
     Rprintf(" -- Barcode in reverse read: length %d\n", barcode_length_rev); 
   }
-  Rprintf(" -- Hairpin: length %d\n", hairpin_length); 
+  Rprintf(" -- Hairpin in forward read: length %d\n", hairpin_length); 
 
   if (allow_mismatch > 0) {
     Rprintf(" -- Allow sequence mismatch, <= %d base in barcode sequence and <= %d base in hairpin sequence. \n", barcode_n_mismatch, hairpin_n_mismatch );

@@ -11,7 +11,7 @@ adj_coxreid::adj_coxreid (int nl, int nc, const double* d) : ncoefs(nc), nlibs(n
      * reallocate the work pointer to this value.
      */
 	double temp_work;
-    F77_CALL(dsytrf)(&uplo, &ncoefs, xtwx.data(), &ncoefs, pivots.data(), &temp_work, &lwork, &info);
+    F77_CALL(dsytrf)(&uplo, &ncoefs, xtwx.data(), &ncoefs, pivots.data(), &temp_work, &lwork, &info FCONE);
 	if (info) { 
 		throw std::runtime_error("failed to identify optimal size of workspace through ILAENV"); 
 	}
@@ -25,7 +25,7 @@ std::pair<double, bool> adj_coxreid::compute(const double* wptr) {
     // Setting working weight_matrix to 'A=Xt %*% diag(W) %*% X' with column-major storage for the lower-triangular.
     // Then doing and LDL* decomposition, see details below.
     compute_xtwx(nlibs, ncoefs, design, wptr, xtwx.data());
-    F77_CALL(dsytrf)(&uplo, &ncoefs, xtwx.data(), &ncoefs, pivots.data(), work.data(), &lwork, &info);
+    F77_CALL(dsytrf)(&uplo, &ncoefs, xtwx.data(), &ncoefs, pivots.data(), work.data(), &lwork, &info FCONE);
     if (info<0) { return std::make_pair(0, false); }
 
     // Log-determinant as sum of the log-diagonals, then halving (see below).

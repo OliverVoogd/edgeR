@@ -37,13 +37,16 @@ To facilitate programming pipelines,
 \seealso{\code{\link[edgeR:DGEList-class]{DGEList-class}}}
 
 \examples{
-y <- matrix(rnbinom(10000,mu=5,size=2),ncol=4)
-d <- DGEList(counts=y, group=rep(1:2,each=2))
-dim(d)
-colnames(d)
-d$samples
+ngenes <- 1000
+nsamples <- 4
+Counts <- matrix(rnbinom(ngenes*nsamples,mu=5,size=2),ngenes,nsamples)
+rownames(Counts) <- 1:ngenes
+y <- DGEList(counts=Counts, group=rep(1:2,each=2))
+dim(y)
+colnames(y)
+y$samples
+y$genes <- data.frame(Symbol=paste0("Gene",1:ngenes))
+show(y)
 }
 
 \concept{edgeR classes}
-
-

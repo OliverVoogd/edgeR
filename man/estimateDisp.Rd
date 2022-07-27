@@ -32,7 +32,7 @@ Maximizes the negative binomial likelihood to give the estimate of the common, t
 \item{min.row.sum}{numeric scalar giving a value for the filtering out of low abundance tags. Only tags with total sum of counts above this value are used. Low abundance tags can adversely affect the dispersion estimation, so this argument allows the user to select an appropriate filter threshold for the tag abundance.}
 \item{grid.length}{the number of points on which the interpolation is applied for each tag.}
 \item{grid.range}{the range of the grid points around the trend on a log2 scale.}
-\item{robust}{logical, should the estimation of \code{prior.df} be robustified against outliers?}
+\item{robust}{logical, should the estimation of \code{prior.df} be robustified against hypervariable genes?}
 \item{winsor.tail.p}{numeric vector of length 1 or 2, giving left and right tail proportions of the deviances to Winsorize when estimating \code{prior.df}.}
 \item{tol}{the desired accuracy, passed to \code{\link{optimize}}}
 \item{group}{vector or factor giving the experimental group/condition for each library. Defaults to a vector of ones with length equal to the number of libraries.}
@@ -50,7 +50,7 @@ Maximizes the negative binomial likelihood to give the estimate of the common, t
 	\item{tagwise.dispersion}{tagwise estimates of the dispersion parameter if \code{tagwise=TRUE}.}
 	\item{AveLogCPM}{numeric vector giving log2(AveCPM) for each row of \code{y}.}
 	\item{trend.method}{method for estimating dispersion trend as given in the input.}
-	\item{prior.df}{prior degrees of freedom. It is a vector when robust method is used.}
+	\item{prior.df}{prior degrees of freedom. If \code{robust=TRUE} then \code{prior.df} is a vector with smaller values assigned to hypervariable outlier genes.}
 	\item{prior.n}{estimate of the prior weight, i.e. the smoothing parameter that indicates the weight to put on the common likelihood compared to the individual tag's likelihood.}
 	\item{span}{width of the smoothing window used in estimating dispersions.}
 
@@ -79,7 +79,7 @@ Somnath Datta and Daniel S. Nettleton (eds), Springer, New York, pages 51-74.
 Phipson, B, Lee, S, Majewski, IJ, Alexander, WS, and Smyth, GK (2016).
 Robust hyperparameter estimation protects against hypervariable genes and improves power to detect differential expression.
 \emph{Annals of Applied Statistics} 10, 946-963.
-\url{http://projecteuclid.org/euclid.aoas/1469199900}
+\doi{10.1214/16-AOAS920}
 }
 
 \author{Yunshun Chen, Gordon Smyth}

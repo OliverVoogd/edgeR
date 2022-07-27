@@ -26,7 +26,7 @@ struct QRdecomposition {
 
         // Repeating for dormqr
         F77_CALL(dormqr)(&side, &trans_ormqr, &NR, &unity, &NC, Xcopy.data(), &NR, tau.data(), 
-                effects.data(), &NR, &tmpwork, &lwork_ormqr, &info);
+                effects.data(), &NR, &tmpwork, &lwork_ormqr, &info FCONE FCONE);
         lwork_ormqr=tmpwork+0.5;
         if (lwork_ormqr < 1) { lwork_ormqr = 1; }
         work_ormqr.resize(lwork_ormqr);
@@ -67,12 +67,12 @@ struct QRdecomposition {
         }
 
         F77_CALL(dormqr)(&side, &trans_ormqr, &NR, &unity, &NC, Xcopy.data(), &NR, tau.data(), 
-                effects.data(), &NR, work_ormqr.data(), &lwork_ormqr, &info);
+                effects.data(), &NR, work_ormqr.data(), &lwork_ormqr, &info FCONE FCONE);
         if (info) {
             throw std::runtime_error("Q**T multiplication failed");
         }
 
-        F77_CALL(dtrtrs)(&uplo, &trans_trtrs, &diag, &NC, &unity, Xcopy.data(), &NR, effects.data(), &NR, &info);
+        F77_CALL(dtrtrs)(&uplo, &trans_trtrs, &diag, &NC, &unity, Xcopy.data(), &NR, effects.data(), &NR, &info FCONE FCONE FCONE);
         if (info) {
             throw std::runtime_error("failed to solve the triangular system");
         }

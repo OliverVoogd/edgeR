@@ -1,6 +1,6 @@
 readDGE <- function(files,path=NULL,columns=c(1,2),group=NULL,labels=NULL,...) 
 #	Read and collate a set of count data files, each file containing counts for one library
-#	Created 2006.  Last modified 5 Sep 2017.
+#	Created 2006.  Last modified 8 Sep 2021.
 {
 #	Create data.frame to hold sample information
 	x <- list()
@@ -27,7 +27,10 @@ readDGE <- function(files,path=NULL,columns=c(1,2),group=NULL,labels=NULL,...)
 		if(!is.null(path)) fn <- file.path(path,fn)
 		d[[fn]] <- read.delim(fn,...,stringsAsFactors=FALSE)
 		taglist[[fn]] <- as.character(d[[fn]][,columns[1]])
-		if(anyDuplicated(taglist[[fn]])) stop("Repeated tag sequences in",fn)
+		if(anyDuplicated(taglist[[fn]])) {
+			ndup <- sum(duplicated(taglist[[fn]]))
+			stop("There are ",ndup," repeated row names in ",fn,". Row names must be unique.")
+		}
 	}
 
 #	Collate counts for unique tags

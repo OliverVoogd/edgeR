@@ -1,4 +1,5 @@
 \name{as.data.frame}
+\alias{as.data.frame.DGEList}
 \alias{as.data.frame.DGEExact}
 \alias{as.data.frame.DGELRT}
 \alias{as.data.frame.TopTags}
@@ -19,6 +20,9 @@ Turn a \code{TopTags} object into a \code{data.frame}.
 Convert edgeR objects into data.frames.
 This method returns the \code{table} component of a \code{TopTags} object.
 For \code{DGEExact} and \code{DGELRT} objects, the \code{genes} and \code{table} components are combined into a data.frame, similar to what is done by \code{topTags} but without sorting or p-value adjustment.
+For \code{DGEList}, the \code{genes} and \code{counts} components are combined into a data.frame.
+
+Amongst other things, this functionality allows edgeR objects to be written to files using \code{write.table} or \code{write.csv}.
 }
 \value{
 A data.frame.
