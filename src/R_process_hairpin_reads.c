@@ -68,6 +68,8 @@ int hairpin_n_mismatch;
 int isverbose;
 int plotPositions;
 
+int hairpin_before_barcode;
+
 long barcodecount;
 long hairpincount;
 long bchpcount;
@@ -1296,7 +1298,12 @@ Process_Hairpin_Reads(char *filename, char *filename2){
     }
 
     // Using trie matching, find a valid hairpin within the read.
-    hairpin_index = locate_hairpin(line, &barcode_start_position, &hairpin_start_position); 
+	int start_search_position = barcode_start_position;
+	if (hairpin_before_barcode) {
+		start_search_position = -1;
+	}
+	hairpin_index = locate_hairpin(line, &start_search_position, &hairpin_start_position); 
+
     if (hairpin_index > 0){
       hairpincount++;
       if (plotPositions) {
@@ -1336,7 +1343,8 @@ Initialise(int IsPaired, int IsDualIndexing,
            int hairpinLength,
            int allowMismatch, int barcodemismatch, int hairpinmismatch, 
            int verbose,
-           int barcodesInHeader, int plot_positions){
+           int barcodesInHeader, int plot_positions,
+		   int hairpinBeforeBarcode){
 	/* 
   Initiliases all local variables with given values
   isPaired: determines whether two reads are given, for forward and reverse reads
@@ -1368,6 +1376,8 @@ Initialise(int IsPaired, int IsDualIndexing,
   hairpin_n_mismatch = hairpinmismatch;
   isverbose = verbose;
   plotPositions = plot_positions;
+
+  hairpin_before_barcode = hairpinBeforeBarcode;
 
   num_read = 0;
   barcodecount = 0;
@@ -1535,7 +1545,8 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
                     int *hairpinLength,
                     int *allowMismatch, int *barcodemismatch, int *hairpinmismatch,
                     char **output, int *verbose, int *barcodesInHeader, int *plot_positions,
-                    char **barcodePosFile, char **barcode2PosFile, char **hairpinPosFile)
+                    char **barcodePosFile, char **barcode2PosFile, char **hairpinPosFile,
+					int *hairpinBeforeBarcode)
 {  
   /* 
   The entry point for the processAmplicons function.
@@ -1570,7 +1581,8 @@ processHairpinReads(int *isPairedReads, int *isDualIndexingReads,
              *barcodeLength, *barcode2Length, *barcodeLengthRev, 
              *hairpinLength,
              *allowMismatch, *barcodemismatch, *hairpinmismatch, 
-             *verbose, *barcodesInHeader, *plot_positions);
+             *verbose, *barcodesInHeader, *plot_positions,
+			 *hairpinBeforeBarcode);
 
   Read_In_Barcodes(*barcodeseqs); 
   Sort_Barcodes();

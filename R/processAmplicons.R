@@ -1,6 +1,7 @@
 processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
                     allowMismatch=FALSE, barcodeMismatchBase = 1, hairpinMismatchBase = 2,
                     dualIndexForwardRead=FALSE, verbose = FALSE, barcodesInHeader = FALSE,
+					hairpinBeforeBarcode=FALSE,
                     plotPositions=FALSE) {
 
   ## a simple check for the existance of the given files
@@ -167,7 +168,8 @@ processAmplicons = function(readfile, readfile2=NULL, barcodefile, hairpinfile,
 	     as.integer(hairpinlength),
        as.integer(allowMismatch), as.integer(barcodeMismatchBase), as.integer(hairpinMismatchBase),
        as.character(tempoutfile), as.integer(verbose), as.integer(barcodesInHeader), as.integer(plotPositions),
-	     as.character(tempbarcodeposfile), as.character(tempbarcode2posfile), as.character(temphairpinposfile))
+	     as.character(tempbarcodeposfile), as.character(tempbarcode2posfile), as.character(temphairpinposfile),
+		 as.integer(hairpinBeforeBarcode))
 
     ## retrive all of the calculated data
     hairpinReadsSummary <- read.table(tempoutfile, sep="\t", header=FALSE)

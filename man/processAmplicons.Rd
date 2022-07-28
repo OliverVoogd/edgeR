@@ -12,6 +12,7 @@ processAmplicons(readfile, readfile2=NULL, barcodefile, hairpinfile,
                     allowMismatch=FALSE, barcodeMismatchBase=1,
                     hairpinMismatchBase=2, dualIndexForwardRead=FALSE,
                     verbose=FALSE, barcodesInHeader=FALSE,
+                    hairpinBeforeBarcode=FALSE,
                     plotPositions=FALSE)
 }
 
@@ -27,6 +28,7 @@ processAmplicons(readfile, readfile2=NULL, barcodefile, hairpinfile,
 \code{barcodefile}) which should be matched}
 \item{verbose}{if \code{TRUE}, output program progress}
 \item{barcodesInHeader}{logical, indicates if barcode sequences should be matched in the header (sequence identifier) of each read (i.e. the first of every group of four lines in the fastq files)}
+\item{hairpinBeforeBarcode}{logical, indicates that hairpin sequences appear before barcode sequences in each read. Setting this to TRUE will allow hairpins to exist anywhere in a read irrespective of barcode position. Leaving as FALSE will improve performance if hairpins are positioned after barcode sequences}
 \item{plotPositions}{logical, indicates if a density plot displaying the position of each barcode and hairpin/sgRNA sequence in the reads should be created. If \code{dualIndexForwardRead} is \code{TRUE} or \code{readfile2} is not \code{NULL}, plotPositions will generate two density plots, side by side, indicating the positions of the first barcodes and hairpins in the first plot, and second barcodes in the second.}
 }
 
